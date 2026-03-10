@@ -1000,14 +1000,15 @@ def compute_crash_probabilities(percentiles, sp500_prices):
             n_avail = indicator_preds.notna().sum(axis=1)
             aggregate_probs[f'CRASH_PROB_MEDIAN_{tag}'] = indicator_preds.median(axis=1)
             aggregate_probs[f'CRASH_PROB_P75_{tag}'] = indicator_preds.quantile(0.75, axis=1)
+            aggregate_probs[f'CRASH_PROB_P90_{tag}'] = indicator_preds.quantile(0.90, axis=1)
             aggregate_probs[f'CRASH_PROB_MEAN_{tag}'] = indicator_preds.mean(axis=1)
             aggregate_probs[f'N_MODELS_{tag}'] = n_avail
 
             # Progress
-            med_val = indicator_preds.median(axis=1).dropna()
-            if len(med_val) > 0:
-                print(f"  DD>{threshold}% in {h_name}: median P(crash) latest={med_val.iloc[-1]:.3f}, "
-                      f"avg={med_val.mean():.3f}, models={len(cols)}")
+            p90_val = indicator_preds.quantile(0.90, axis=1).dropna()
+            if len(p90_val) > 0:
+                print(f"  DD>{threshold}% in {h_name}: P90 P(crash) latest={p90_val.iloc[-1]:.3f}, "
+                      f"avg={p90_val.mean():.3f}, models={len(cols)}")
 
     print(f"\n  Total models fitted: {model_count} indicator x crash-definition combinations")
     print(f"  Crash definitions: {len(CRASH_THRESHOLDS)} thresholds x {len(HORIZONS)} horizons "
@@ -1023,13 +1024,14 @@ def compute_crash_probabilities(percentiles, sp500_prices):
 def backtest(aggregate_probs, sp500_prices, tbill_rate=None):
     """
     Backtest crash probability signals against forward S&P 500 returns.
-    Uses median and P75 crash probability as signals.
+    Uses P90, P75, and median crash probability as signals.
     """
     print("\n=== Running backtest ===")
 
     primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
     median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
     p75_col = f'CRASH_PROB_P75_{primary_tag}'
+    p90_col = f'CRASH_PROB_P90_{primary_tag}'
 
     if median_col not in aggregate_probs.columns:
         print(f"  [WARN] Primary signal {median_col} not found, skipping backtest")
@@ -1083,7 +1085,7 @@ def backtest(aggregate_probs, sp500_prices, tbill_rate=None):
 
     # --- Correlation analysis ---
     print(f"\n--- Correlation: P(crash) vs Forward Returns ---")
-    for signal_col in [median_col, p75_col]:
+    for signal_col in [median_col, p75_col, p90_col]:
         if signal_col not in bt.columns:
             continue
         print(f"\n  {signal_col}:")
@@ -1167,7 +1169,7 @@ def backtest(aggregate_probs, sp500_prices, tbill_rate=None):
 
     # Grid search over signal source and thresholds
     all_results = []
-    for signal_col, signal_name in [(median_col, 'Median'), (p75_col, 'P75')]:
+    for signal_col, signal_name in [(median_col, 'Median'), (p75_col, 'P75'), (p90_col, 'P90')]:
         if signal_col not in bt.columns:
             continue
         signal_series = bt[signal_col]
@@ -1230,6 +1232,7 @@ def create_charts(bt, sp500_prices, output_dir):
     primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
     median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
     p75_col = f'CRASH_PROB_P75_{primary_tag}'
+    p90_col = f'CRASH_PROB_P90_{primary_tag}'
 
     fig, axes = plt.subplots(4, 1, figsize=(16, 20), sharex=True,
                               gridspec_kw={'height_ratios': [2, 1.5, 1, 1]})
@@ -1242,24 +1245,24 @@ def create_charts(bt, sp500_prices, output_dir):
     ax1.set_title(f'Crash Probability Model — P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON})',
                   fontsize=14, fontweight='bold')
 
-    # Shade high-probability periods
-    if median_col in bt.columns:
-        high_prob = bt[median_col] >= 0.25
+    # Shade high-probability periods (using P90)
+    if p90_col in bt.columns:
+        high_prob = bt[p90_col] >= 0.35
         for start, end in _get_periods(high_prob):
             ax1.axvspan(start, end, alpha=0.3, color='red')
-        ax1.legend(['S&P 500', 'P(crash) >= 25%'], loc='upper left', fontsize=9)
+        ax1.legend(['S&P 500', 'P90(crash) >= 35%'], loc='upper left', fontsize=9)
     ax1.grid(True, alpha=0.3)
 
-    # Panel 2: Median crash probability
+    # Panel 2: P90 crash probability (primary), with median as reference
     ax2 = axes[1]
-    if median_col in bt.columns:
-        med = bt[median_col] * 100  # convert to percentage
-        ax2.fill_between(med.index, 0, med.values, alpha=0.5,
-                         color='orangered', label='Median P(crash)')
-        if p75_col in bt.columns:
-            p75 = bt[p75_col] * 100
-            ax2.plot(p75.index, p75.values, color='darkred', linewidth=0.8,
-                     alpha=0.7, label='P75 P(crash)')
+    if p90_col in bt.columns:
+        p90 = bt[p90_col] * 100
+        ax2.fill_between(p90.index, 0, p90.values, alpha=0.5,
+                         color='orangered', label='P90 P(crash)')
+        if median_col in bt.columns:
+            med = bt[median_col] * 100
+            ax2.plot(med.index, med.values, color='steelblue', linewidth=0.8,
+                     alpha=0.7, label='Median P(crash)')
         ax2.axhline(10, color='orange', linestyle='--', linewidth=0.8, label='10%')
         ax2.axhline(25, color='red', linestyle='--', linewidth=0.8, label='25%')
         ax2.axhline(40, color='darkred', linestyle='--', linewidth=0.8, label='40%')
@@ -1402,18 +1405,18 @@ def main():
     print(f"\nDate: {dataset.index[-1].date()}")
 
     primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
-    for agg in ['MEDIAN', 'P75', 'MEAN']:
+    for agg in ['P90', 'P75', 'MEDIAN', 'MEAN']:
         col = f'CRASH_PROB_{agg}_{primary_tag}'
         if col in dataset.columns:
             val = latest.get(col, np.nan)
             if not pd.isna(val):
                 print(f"  P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}) [{agg}]: {val:.1%}")
 
-    print(f"\nAll crash definitions (median P(crash)):")
+    print(f"\nAll crash definitions (P90 P(crash)):")
     for h_name in HORIZONS:
         for threshold in CRASH_THRESHOLDS:
             tag = f'{threshold}pct_{h_name}'
-            col = f'CRASH_PROB_MEDIAN_{tag}'
+            col = f'CRASH_PROB_P90_{tag}'
             if col in dataset.columns:
                 val = latest.get(col, np.nan)
                 if not pd.isna(val):

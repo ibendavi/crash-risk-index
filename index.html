@@ -352,12 +352,16 @@
           <span id="crash-def" class="meta-value">--</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">Median P(crash)</span>
-          <span id="prob-median" class="meta-value">--</span>
+          <span class="meta-label">90th pctl P(crash)</span>
+          <span id="prob-p90" class="meta-value">--</span>
         </div>
         <div class="meta-row">
           <span class="meta-label">75th pctl P(crash)</span>
           <span id="prob-p75" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Median P(crash)</span>
+          <span id="prob-median" class="meta-value">--</span>
         </div>
         <div class="meta-row">
           <span class="meta-label">Active Models</span>
@@ -682,15 +686,18 @@ async function init() {
     document.getElementById('n-models').textContent = data.n_models;
 
     // Probabilities
-    const medCls = probClass(data.crash_prob_median);
-    document.getElementById('prob-median').innerHTML =
-      `<span class="prob-${medCls}">${data.crash_prob_median.toFixed(1)}%</span>`;
+    const p90Cls = probClass(data.crash_prob_p90);
+    document.getElementById('prob-p90').innerHTML =
+      `<span class="prob-${p90Cls}">${data.crash_prob_p90.toFixed(1)}%</span>`;
     const p75Cls = probClass(data.crash_prob_p75);
     document.getElementById('prob-p75').innerHTML =
       `<span class="prob-${p75Cls}">${data.crash_prob_p75.toFixed(1)}%</span>`;
+    const medCls = probClass(data.crash_prob_median);
+    document.getElementById('prob-median').innerHTML =
+      `<span class="prob-${medCls}">${data.crash_prob_median.toFixed(1)}%</span>`;
 
-    // Gauge (show median)
-    setGauge(data.crash_prob_median);
+    // Gauge (show P90)
+    setGauge(data.crash_prob_p90);
 
     // Secondary probabilities
     if (data.secondary_probs) {

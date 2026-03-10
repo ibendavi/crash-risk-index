@@ -163,27 +163,30 @@ def generate_dashboard_data(data_dir=None):
     # --- Main crash probability (primary definition) ---
     median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
     p75_col = f'CRASH_PROB_P75_{primary_tag}'
+    p90_col = f'CRASH_PROB_P90_{primary_tag}'
     mean_col = f'CRASH_PROB_MEAN_{primary_tag}'
     n_models_col = f'N_MODELS_{primary_tag}'
 
-    crash_prob_median = float(latest.get(median_col, 0)) * 100
+    crash_prob_p90 = float(latest.get(p90_col, 0)) * 100
     crash_prob_p75 = float(latest.get(p75_col, 0)) * 100
+    crash_prob_median = float(latest.get(median_col, 0)) * 100
     crash_prob_mean = float(latest.get(mean_col, 0)) * 100
     n_models = int(latest.get(n_models_col, 0))
 
-    # --- Secondary crash probabilities ---
+    # --- Secondary crash probabilities (using P90) ---
     secondary_probs = {}
     for threshold in [5, 10, 15, 20]:
         for horizon in ['3M', '6M', '12M']:
             tag = f'{threshold}pct_{horizon}'
-            col = f'CRASH_PROB_MEDIAN_{tag}'
+            col = f'CRASH_PROB_P90_{tag}'
             if col in df.columns and not pd.isna(latest.get(col)):
                 secondary_probs[f'DD>{threshold}% in {horizon}'] = round(
                     float(latest[col]) * 100, 1)
 
-    # --- Crash probability history (last 5 years daily, monthly before) ---
-    if median_col in df.columns:
-        prob_history = df[median_col].dropna() * 100  # convert to %
+    # --- Crash probability history (P90, last 5 years daily, monthly before) ---
+    history_col = p90_col if p90_col in df.columns else median_col
+    if history_col in df.columns:
+        prob_history = df[history_col].dropna() * 100  # convert to %
 
         five_years_ago = prob_history.index[-1] - pd.DateOffset(years=5)
         recent = prob_history[prob_history.index >= five_years_ago]
@@ -204,7 +207,7 @@ def generate_dashboard_data(data_dir=None):
     else:
         crash_prob_history = []
 
-    # --- Category averages (median P(crash) within each category) ---
+    # --- Category scores (P90 of per-indicator crash probs within each category) ---
     category_scores = {}
     for cat_name, cat_indicators in CATEGORIES.items():
         probs = []
@@ -213,14 +216,15 @@ def generate_dashboard_data(data_dir=None):
             if prob_col in df.columns and not pd.isna(latest.get(prob_col)):
                 probs.append(float(latest[prob_col]) * 100)
         if probs:
-            category_scores[cat_name] = round(float(np.median(probs)), 1)
+            category_scores[cat_name] = round(float(np.percentile(probs, 90)), 1)
 
     # --- Assemble output ---
     dashboard = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'latest_date': latest_date,
-        'crash_prob_median': round(crash_prob_median, 1),
+        'crash_prob_p90': round(crash_prob_p90, 1),
         'crash_prob_p75': round(crash_prob_p75, 1),
+        'crash_prob_median': round(crash_prob_median, 1),
         'crash_prob_mean': round(crash_prob_mean, 1),
         'primary_definition': f'DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}',
         'n_models': n_models,
@@ -235,8 +239,9 @@ def generate_dashboard_data(data_dir=None):
     with open(out_path, 'w') as f:
         json.dump(dashboard, f, indent=2)
     print(f"Dashboard data saved to {out_path}")
-    print(f"  P(crash) median: {crash_prob_median:.1f}%")
+    print(f"  P(crash) P90:    {crash_prob_p90:.1f}%")
     print(f"  P(crash) P75:    {crash_prob_p75:.1f}%")
+    print(f"  P(crash) median: {crash_prob_median:.1f}%")
     print(f"  Indicators: {len(indicators)}")
     print(f"  History points: {len(crash_prob_history)}")
 
