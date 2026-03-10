@@ -272,11 +272,11 @@
 <div class="header">
   <h1>MARKET CRASH RISK INDEX</h1>
   <div class="subtitle">Composite of 49 indicators | Updated <span id="update-date">--</span>
-    <a href="https://github.com/ibendavi/crash-risk-index/actions/workflows/update_data.yml"
-       target="_blank"
+    <button id="refresh-btn" onclick="triggerRefresh()"
        style="margin-left:12px; padding:3px 10px; background:#444; color:#0f0; border:1px solid #555;
-              border-radius:4px; text-decoration:none; font-size:12px; cursor:pointer;">
-      Refresh Data</a>
+              border-radius:4px; font-size:12px; cursor:pointer; font-family:inherit;">
+      Refresh Data</button>
+    <span id="refresh-status" style="margin-left:8px; font-size:11px; color:#888;"></span>
   </div>
 </div>
 
@@ -373,6 +373,57 @@
 </div>
 
 <script>
+async function triggerRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  const status = document.getElementById('refresh-status');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  status.textContent = 'Triggering update...';
+
+  // Get or prompt for GitHub token (stored in localStorage)
+  let token = localStorage.getItem('gh_refresh_token');
+  if (!token) {
+    token = prompt('Enter a GitHub token with workflow scope (stored locally, one-time):');
+    if (!token) { btn.disabled = false; btn.style.opacity = '1'; status.textContent = ''; return; }
+    localStorage.setItem('gh_refresh_token', token);
+  }
+
+  try {
+    const resp = await fetch(
+      'https://api.github.com/repos/ibendavi/crash-risk-index/actions/workflows/update_data.yml/dispatches',
+      { method: 'POST', headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' },
+        body: JSON.stringify({ ref: 'main' }) }
+    );
+    if (resp.status === 204) {
+      status.textContent = 'Update triggered. Data will refresh in ~5 min.';
+      // Poll for completion, then reload data
+      setTimeout(async function poll() {
+        try {
+          const r = await fetch('dashboard_data.json?t=' + Date.now());
+          const d = await r.json();
+          if (d.generated_at !== document.getElementById('gen-date').textContent) {
+            status.textContent = 'Updated!';
+            location.reload();
+          } else {
+            status.textContent = 'Waiting for pipeline...';
+            setTimeout(poll, 30000);
+          }
+        } catch(e) { setTimeout(poll, 30000); }
+      }, 60000);
+    } else if (resp.status === 401 || resp.status === 403) {
+      localStorage.removeItem('gh_refresh_token');
+      status.textContent = 'Token invalid. Click again to re-enter.';
+      btn.disabled = false; btn.style.opacity = '1';
+    } else {
+      status.textContent = 'Error: HTTP ' + resp.status;
+      btn.disabled = false; btn.style.opacity = '1';
+    }
+  } catch(e) {
+    status.textContent = 'Network error';
+    btn.disabled = false; btn.style.opacity = '1';
+  }
+}
+
 function dangerClass(score) {
   if (score < 30) return 'low';
   if (score < 55) return 'med';
