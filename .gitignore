@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.parquet
+*.png
+*.tmp.*
+*~
+crash_index_dataset.csv
+.DS_Store

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Crash Risk Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --card: #131a2a;
+    --border: #1e2a42;
+    --text: #c8d6e5;
+    --text-dim: #6b7b8d;
+    --accent: #4fc3f7;
+    --green: #00c853;
+    --yellow: #ffd600;
+    --orange: #ff9100;
+    --red: #ff1744;
+    --red-dark: #b71c1c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .header {
+    text-align: center;
+    padding: 32px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+  .header .subtitle {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+  /* Gauge section */
+  .gauge-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .gauge-container {
+    position: relative;
+    width: 280px;
+    height: 160px;
+  }
+  .gauge-svg { width: 100%; height: 100%; }
+  .gauge-label {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  .gauge-value {
+    font-size: 2.8rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .gauge-text {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .gauge-status {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .gauge-meta {
+    text-align: left;
+  }
+  .gauge-meta .meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .gauge-meta .meta-label { color: var(--text-dim); }
+  .gauge-meta .meta-value { font-weight: 600; }
+
+  /* Category bars */
+  .categories-section { margin-bottom: 32px; }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #fff;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .cat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cat-name {
+    flex: 1;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .cat-bar-outer {
+    width: 100px;
+    height: 8px;
+    background: #1a2235;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .cat-bar-inner {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .cat-score {
+    font-size: 0.85rem;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* Chart */
+  .chart-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 32px;
+  }
+  .chart-container { position: relative; height: 300px; }
+
+  /* Indicator grid */
+  .indicators-section { margin-bottom: 32px; }
+  .category-group { margin-bottom: 24px; }
+  .category-header {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .ind-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 8px;
+  }
+  .ind-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+  }
+  .ind-card:hover { border-color: var(--accent); }
+  .ind-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ind-info { flex: 1; min-width: 0; }
+  .ind-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ind-meta {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+  .ind-score {
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 40px;
+    text-align: right;
+  }
+  .ind-bar-outer {
+    width: 60px;
+    height: 6px;
+    background: #1a2235;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .ind-bar-inner {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  /* Colors by danger level */
+  .danger-low { color: var(--green); }
+  .danger-med { color: var(--yellow); }
+  .danger-high { color: var(--orange); }
+  .danger-extreme { color: var(--red); }
+
+  .bg-low { background: var(--green); }
+  .bg-med { background: var(--yellow); }
+  .bg-high { background: var(--orange); }
+  .bg-extreme { background: var(--red); }
+
+  .glow-low { box-shadow: 0 0 8px var(--green); }
+  .glow-med { box-shadow: 0 0 8px var(--yellow); }
+  .glow-high { box-shadow: 0 0 8px var(--orange); }
+  .glow-extreme { box-shadow: 0 0 8px var(--red); }
+
+  .footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+  }
+  .loading .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 640px) {
+    .gauge-section { flex-direction: column; gap: 20px; }
+    .ind-grid { grid-template-columns: 1fr; }
+    .cat-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>MARKET CRASH RISK INDEX</h1>
+  <div class="subtitle">Composite of 49 indicators | Updated <span id="update-date">--</span>
+    <a href="https://github.com/ibendavi/crash-risk-index/actions/workflows/update_data.yml"
+       target="_blank"
+       style="margin-left:12px; padding:3px 10px; background:#444; color:#0f0; border:1px solid #555;
+              border-radius:4px; text-decoration:none; font-size:12px; cursor:pointer;">
+      Refresh Data</a>
+  </div>
+</div>
+
+<div class="main">
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    Loading dashboard data...
+  </div>
+
+  <div id="content" style="display:none">
+
+    <!-- Gauge -->
+    <div class="gauge-section">
+      <div class="gauge-container">
+        <svg class="gauge-svg" viewBox="0 0 280 160">
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#00c853"/>
+              <stop offset="35%" stop-color="#ffd600"/>
+              <stop offset="60%" stop-color="#ff9100"/>
+              <stop offset="85%" stop-color="#ff1744"/>
+              <stop offset="100%" stop-color="#b71c1c"/>
+            </linearGradient>
+          </defs>
+          <!-- Background arc -->
+          <path d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke="#1a2235" stroke-width="18" stroke-linecap="round"/>
+          <!-- Colored arc -->
+          <path id="gauge-arc" d="M 30 140 A 110 110 0 0 1 250 140" fill="none" stroke="url(#gaugeGrad)" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 999"/>
+          <!-- Needle -->
+          <line id="gauge-needle" x1="140" y1="140" x2="140" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="140" cy="140" r="6" fill="#fff"/>
+          <!-- Tick labels -->
+          <text x="25" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">0</text>
+          <text x="52" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">25</text>
+          <text x="140" y="38" fill="#6b7b8d" font-size="11" text-anchor="middle">50</text>
+          <text x="228" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">75</text>
+          <text x="255" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">100</text>
+        </svg>
+        <div class="gauge-label">
+          <div id="gauge-value" class="gauge-value">--</div>
+          <div class="gauge-text">DANGER SCORE</div>
+          <div id="gauge-status" class="gauge-status">--</div>
+        </div>
+      </div>
+      <div class="gauge-meta">
+        <div class="meta-row">
+          <span class="meta-label">Active Indicators</span>
+          <span id="n-indicators" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Data Date</span>
+          <span id="data-date" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Generated</span>
+          <span id="gen-date" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Highest Signal</span>
+          <span id="highest-signal" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Lowest Signal</span>
+          <span id="lowest-signal" class="meta-value">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category scores -->
+    <div class="categories-section">
+      <div class="section-title">Category Breakdown</div>
+      <div id="cat-grid" class="cat-grid"></div>
+    </div>
+
+    <!-- Historical chart -->
+    <div class="chart-section">
+      <div class="section-title" style="margin-bottom:12px">Composite History</div>
+      <div class="chart-container">
+        <canvas id="history-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Individual indicators -->
+    <div class="indicators-section">
+      <div class="section-title">All Indicators</div>
+      <div id="indicators-container"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  Market Crash Risk Index | For research purposes only | Not financial advice
+</div>
+
+<script>
+function dangerClass(score) {
+  if (score < 30) return 'low';
+  if (score < 55) return 'med';
+  if (score < 75) return 'high';
+  return 'extreme';
+}
+
+function dangerColor(score) {
+  if (score < 30) return '#00c853';
+  if (score < 55) return '#ffd600';
+  if (score < 75) return '#ff9100';
+  return '#ff1744';
+}
+
+function statusText(score) {
+  if (score < 25) return 'LOW RISK';
+  if (score < 40) return 'MODERATE';
+  if (score < 55) return 'ELEVATED';
+  if (score < 65) return 'HIGH';
+  if (score < 80) return 'SEVERE';
+  return 'EXTREME';
+}
+
+function formatRaw(val) {
+  if (val === null || val === undefined) return '--';
+  if (Math.abs(val) >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+  if (Math.abs(val) >= 1e3) return (val / 1e3).toFixed(1) + 'K';
+  if (Math.abs(val) < 0.01 && val !== 0) return val.toExponential(2);
+  if (Math.abs(val) < 10) return val.toFixed(2);
+  return val.toFixed(1);
+}
+
+function setGauge(score) {
+  // Arc
+  const totalLen = 345; // approx arc length
+  const dashLen = (score / 100) * totalLen;
+  document.getElementById('gauge-arc').setAttribute('stroke-dasharray', `${dashLen} ${totalLen}`);
+
+  // Needle angle: -90 (left) to +90 (right)
+  const angle = -90 + (score / 100) * 180;
+  const rad = angle * Math.PI / 180;
+  const nx = 140 + 95 * Math.sin(rad);
+  const ny = 140 - 95 * Math.cos(rad);
+  const needle = document.getElementById('gauge-needle');
+  needle.setAttribute('x2', nx);
+  needle.setAttribute('y2', ny);
+
+  // Value
+  const cls = dangerClass(score);
+  const el = document.getElementById('gauge-value');
+  el.textContent = score.toFixed(1);
+  el.className = 'gauge-value danger-' + cls;
+
+  const status = document.getElementById('gauge-status');
+  status.textContent = statusText(score);
+  status.className = 'gauge-status danger-' + cls;
+}
+
+function renderCategories(catScores) {
+  const grid = document.getElementById('cat-grid');
+  // Sort by score descending
+  const sorted = Object.entries(catScores).sort((a, b) => b[1] - a[1]);
+  grid.innerHTML = sorted.map(([name, score]) => {
+    const cls = dangerClass(score);
+    return `
+      <div class="cat-card">
+        <span class="cat-name">${name}</span>
+        <div class="cat-bar-outer">
+          <div class="cat-bar-inner bg-${cls}" style="width:${score}%"></div>
+        </div>
+        <span class="cat-score danger-${cls}">${score.toFixed(0)}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderIndicators(indicators) {
+  // Group by category
+  const groups = {};
+  indicators.forEach(ind => {
+    if (!groups[ind.category]) groups[ind.category] = [];
+    groups[ind.category].push(ind);
+  });
+
+  const container = document.getElementById('indicators-container');
+  let html = '';
+
+  // Sort categories by max danger score
+  const catOrder = Object.entries(groups)
+    .map(([cat, inds]) => [cat, Math.max(...inds.map(i => i.danger_score))])
+    .sort((a, b) => b[1] - a[1]);
+
+  for (const [cat] of catOrder) {
+    const inds = groups[cat].sort((a, b) => b.danger_score - a.danger_score);
+    html += `<div class="category-group">`;
+    html += `<div class="category-header">${cat}</div>`;
+    html += `<div class="ind-grid">`;
+    for (const ind of inds) {
+      const cls = dangerClass(ind.danger_score);
+      const rawStr = formatRaw(ind.raw_value);
+      html += `
+        <div class="ind-card">
+          <div class="ind-dot bg-${cls} glow-${cls}"></div>
+          <div class="ind-info">
+            <div class="ind-name">${ind.name}</div>
+            <div class="ind-meta">${ind.frequency} | Raw: ${rawStr} | Updated: ${ind.last_update}</div>
+          </div>
+          <div class="ind-bar-outer">
+            <div class="ind-bar-inner bg-${cls}" style="width:${ind.danger_score}%"></div>
+          </div>
+          <div class="ind-score danger-${cls}">${ind.danger_score.toFixed(0)}</div>
+        </div>`;
+    }
+    html += `</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderChart(history) {
+  const ctx = document.getElementById('history-chart').getContext('2d');
+
+  const dates = history.map(h => h.date);
+  const values = history.map(h => h.value);
+
+  // Color segments based on danger level
+  const colors = values.map(v => dangerColor(v));
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        data: values,
+        borderColor: '#4fc3f7',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: {
+          target: 'origin',
+          above: 'rgba(79, 195, 247, 0.08)',
+        },
+        tension: 0.1,
+      },
+      // Danger zone bands
+      {
+        data: dates.map(() => 65),
+        borderColor: 'rgba(255, 23, 68, 0.3)',
+        borderWidth: 1,
+        borderDash: [4, 4],
+        pointRadius: 0,
+        fill: false,
+      },
+      {
+        data: dates.map(() => 40),
+        borderColor: 'rgba(0, 200, 83, 0.3)',
+        borderWidth: 1,
+        borderDash: [4, 4],
+        pointRadius: 0,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: (ctx) => ctx.datasetIndex === 0 ? `Danger: ${ctx.parsed.y.toFixed(1)}` : '',
+            title: (items) => items[0]?.label || '',
+          },
+          filter: (item) => item.datasetIndex === 0,
+        },
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'year', displayFormats: { year: 'yyyy' } },
+          grid: { color: 'rgba(30,42,66,0.5)' },
+          ticks: { color: '#6b7b8d', maxTicksLimit: 15 },
+        },
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(30,42,66,0.5)' },
+          ticks: { color: '#6b7b8d' },
+        },
+      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    },
+  });
+}
+
+// --- Load and render ---
+async function init() {
+  try {
+    const resp = await fetch('dashboard_data.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    // Header
+    document.getElementById('update-date').textContent = data.latest_date;
+    document.getElementById('data-date').textContent = data.latest_date;
+    document.getElementById('gen-date').textContent = data.generated_at;
+    document.getElementById('n-indicators').textContent = data.n_indicators;
+
+    // Highest / lowest
+    const sorted = [...data.indicators].sort((a, b) => b.danger_score - a.danger_score);
+    if (sorted.length > 0) {
+      document.getElementById('highest-signal').innerHTML =
+        `<span class="danger-${dangerClass(sorted[0].danger_score)}">${sorted[0].name} (${sorted[0].danger_score})</span>`;
+      const lowest = sorted[sorted.length - 1];
+      document.getElementById('lowest-signal').innerHTML =
+        `<span class="danger-${dangerClass(lowest.danger_score)}">${lowest.name} (${lowest.danger_score})</span>`;
+    }
+
+    // Gauge
+    setGauge(data.composite_score);
+
+    // Categories
+    renderCategories(data.category_scores);
+
+    // Chart
+    renderChart(data.composite_history);
+
+    // Indicators
+    renderIndicators(data.indicators);
+
+  } catch (err) {
+    document.getElementById('loading').innerHTML =
+      `<div style="color:#ff1744">Error loading data: ${err.message}</div>
+       <div style="margin-top:8px;font-size:0.85rem">Make sure dashboard_data.json is in the same directory.<br>
+       Run: <code>python generate_dashboard_data.py</code></div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
