@@ -141,7 +141,7 @@
   .cat-score {
     font-size: 0.85rem;
     font-weight: 700;
-    min-width: 36px;
+    min-width: 48px;
     text-align: right;
   }
 
@@ -203,7 +203,7 @@
   .ind-score {
     font-size: 1.1rem;
     font-weight: 700;
-    min-width: 40px;
+    min-width: 48px;
     text-align: right;
   }
   .ind-bar-outer {
@@ -219,11 +219,11 @@
     border-radius: 3px;
   }
 
-  /* Colors by danger level */
-  .danger-low { color: var(--green); }
-  .danger-med { color: var(--yellow); }
-  .danger-high { color: var(--orange); }
-  .danger-extreme { color: var(--red); }
+  /* Colors by probability level */
+  .prob-low { color: var(--green); }
+  .prob-med { color: var(--yellow); }
+  .prob-high { color: var(--orange); }
+  .prob-extreme { color: var(--red); }
 
   .bg-low { background: var(--green); }
   .bg-med { background: var(--yellow); }
@@ -234,6 +234,30 @@
   .glow-med { box-shadow: 0 0 8px var(--yellow); }
   .glow-high { box-shadow: 0 0 8px var(--orange); }
   .glow-extreme { box-shadow: 0 0 8px var(--red); }
+
+  /* Secondary probabilities grid */
+  .secondary-section { margin-bottom: 32px; }
+  .sec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+  .sec-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .sec-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .sec-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
 
   .footer {
     text-align: center;
@@ -264,14 +288,15 @@
     .gauge-section { flex-direction: column; gap: 20px; }
     .ind-grid { grid-template-columns: 1fr; }
     .cat-grid { grid-template-columns: 1fr; }
+    .sec-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>MARKET CRASH RISK INDEX</h1>
-  <div class="subtitle">Composite of 49 indicators | Updated <span id="update-date">--</span>
+  <h1>MARKET CRASH PROBABILITY</h1>
+  <div class="subtitle">Logistic regression ensemble | Updated <span id="update-date">--</span>
     <button id="refresh-btn" onclick="triggerRefresh()"
        style="margin-left:12px; padding:3px 10px; background:#444; color:#0f0; border:1px solid #555;
               border-radius:4px; font-size:12px; cursor:pointer; font-family:inherit;">
@@ -295,9 +320,9 @@
           <defs>
             <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stop-color="#00c853"/>
-              <stop offset="35%" stop-color="#ffd600"/>
-              <stop offset="60%" stop-color="#ff9100"/>
-              <stop offset="85%" stop-color="#ff1744"/>
+              <stop offset="25%" stop-color="#ffd600"/>
+              <stop offset="50%" stop-color="#ff9100"/>
+              <stop offset="75%" stop-color="#ff1744"/>
               <stop offset="100%" stop-color="#b71c1c"/>
             </linearGradient>
           </defs>
@@ -308,23 +333,35 @@
           <!-- Needle -->
           <line id="gauge-needle" x1="140" y1="140" x2="140" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
           <circle cx="140" cy="140" r="6" fill="#fff"/>
-          <!-- Tick labels -->
-          <text x="25" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">0</text>
-          <text x="52" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">25</text>
-          <text x="140" y="38" fill="#6b7b8d" font-size="11" text-anchor="middle">50</text>
-          <text x="228" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">75</text>
-          <text x="255" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">100</text>
+          <!-- Tick labels (now 0-100%) -->
+          <text x="25" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">0%</text>
+          <text x="52" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">25%</text>
+          <text x="140" y="38" fill="#6b7b8d" font-size="11" text-anchor="middle">50%</text>
+          <text x="228" y="82" fill="#6b7b8d" font-size="11" text-anchor="middle">75%</text>
+          <text x="255" y="155" fill="#6b7b8d" font-size="11" text-anchor="middle">100%</text>
         </svg>
         <div class="gauge-label">
           <div id="gauge-value" class="gauge-value">--</div>
-          <div class="gauge-text">DANGER SCORE</div>
+          <div class="gauge-text">P(CRASH)</div>
           <div id="gauge-status" class="gauge-status">--</div>
         </div>
       </div>
       <div class="gauge-meta">
         <div class="meta-row">
-          <span class="meta-label">Active Indicators</span>
-          <span id="n-indicators" class="meta-value">--</span>
+          <span class="meta-label">Definition</span>
+          <span id="crash-def" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Median P(crash)</span>
+          <span id="prob-median" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">75th pctl P(crash)</span>
+          <span id="prob-p75" class="meta-value">--</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Active Models</span>
+          <span id="n-models" class="meta-value">--</span>
         </div>
         <div class="meta-row">
           <span class="meta-label">Data Date</span>
@@ -334,26 +371,24 @@
           <span class="meta-label">Generated</span>
           <span id="gen-date" class="meta-value">--</span>
         </div>
-        <div class="meta-row">
-          <span class="meta-label">Highest Signal</span>
-          <span id="highest-signal" class="meta-value">--</span>
-        </div>
-        <div class="meta-row">
-          <span class="meta-label">Lowest Signal</span>
-          <span id="lowest-signal" class="meta-value">--</span>
-        </div>
       </div>
+    </div>
+
+    <!-- Secondary crash probabilities -->
+    <div class="secondary-section">
+      <div class="section-title">Crash Probabilities by Definition</div>
+      <div id="sec-grid" class="sec-grid"></div>
     </div>
 
     <!-- Category scores -->
     <div class="categories-section">
-      <div class="section-title">Category Breakdown</div>
+      <div class="section-title">Category Breakdown (Median P(crash))</div>
       <div id="cat-grid" class="cat-grid"></div>
     </div>
 
     <!-- Historical chart -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Composite History</div>
+      <div class="section-title" style="margin-bottom:12px">Crash Probability History</div>
       <div class="chart-container">
         <canvas id="history-chart"></canvas>
       </div>
@@ -361,7 +396,7 @@
 
     <!-- Individual indicators -->
     <div class="indicators-section">
-      <div class="section-title">All Indicators</div>
+      <div class="section-title">Per-Indicator Crash Probability</div>
       <div id="indicators-container"></div>
     </div>
 
@@ -369,7 +404,7 @@
 </div>
 
 <div class="footer">
-  Market Crash Risk Index | For research purposes only | Not financial advice
+  Market Crash Probability Model | For research purposes only | Not financial advice
 </div>
 
 <script>
@@ -380,7 +415,6 @@ async function triggerRefresh() {
   btn.style.opacity = '0.5';
   status.textContent = 'Triggering update...';
 
-  // Get or prompt for GitHub token (stored in localStorage)
   let token = localStorage.getItem('gh_refresh_token');
   if (!token) {
     token = prompt('Enter a GitHub token with workflow scope (stored locally, one-time):');
@@ -396,7 +430,6 @@ async function triggerRefresh() {
     );
     if (resp.status === 204) {
       status.textContent = 'Update triggered. Data will refresh in ~5 min.';
-      // Poll for completion, then reload data
       setTimeout(async function poll() {
         try {
           const r = await fetch('dashboard_data.json?t=' + Date.now());
@@ -424,26 +457,28 @@ async function triggerRefresh() {
   }
 }
 
-function dangerClass(score) {
-  if (score < 30) return 'low';
-  if (score < 55) return 'med';
-  if (score < 75) return 'high';
+// Probability-based color thresholds
+function probClass(pct) {
+  if (pct < 10) return 'low';
+  if (pct < 25) return 'med';
+  if (pct < 40) return 'high';
   return 'extreme';
 }
 
-function dangerColor(score) {
-  if (score < 30) return '#00c853';
-  if (score < 55) return '#ffd600';
-  if (score < 75) return '#ff9100';
+function probColor(pct) {
+  if (pct < 10) return '#00c853';
+  if (pct < 25) return '#ffd600';
+  if (pct < 40) return '#ff9100';
   return '#ff1744';
 }
 
-function statusText(score) {
-  if (score < 25) return 'LOW RISK';
-  if (score < 40) return 'MODERATE';
-  if (score < 55) return 'ELEVATED';
-  if (score < 65) return 'HIGH';
-  if (score < 80) return 'SEVERE';
+function statusText(pct) {
+  if (pct < 5) return 'VERY LOW';
+  if (pct < 10) return 'LOW';
+  if (pct < 15) return 'MODERATE';
+  if (pct < 25) return 'ELEVATED';
+  if (pct < 40) return 'HIGH';
+  if (pct < 60) return 'SEVERE';
   return 'EXTREME';
 }
 
@@ -456,14 +491,14 @@ function formatRaw(val) {
   return val.toFixed(1);
 }
 
-function setGauge(score) {
-  // Arc
-  const totalLen = 345; // approx arc length
-  const dashLen = (score / 100) * totalLen;
+function setGauge(pct) {
+  // Arc (0-100% maps to full arc)
+  const totalLen = 345;
+  const dashLen = (pct / 100) * totalLen;
   document.getElementById('gauge-arc').setAttribute('stroke-dasharray', `${dashLen} ${totalLen}`);
 
-  // Needle angle: -90 (left) to +90 (right)
-  const angle = -90 + (score / 100) * 180;
+  // Needle
+  const angle = -90 + (pct / 100) * 180;
   const rad = angle * Math.PI / 180;
   const nx = 140 + 95 * Math.sin(rad);
   const ny = 140 - 95 * Math.cos(rad);
@@ -472,35 +507,48 @@ function setGauge(score) {
   needle.setAttribute('y2', ny);
 
   // Value
-  const cls = dangerClass(score);
+  const cls = probClass(pct);
   const el = document.getElementById('gauge-value');
-  el.textContent = score.toFixed(1);
-  el.className = 'gauge-value danger-' + cls;
+  el.textContent = pct.toFixed(1) + '%';
+  el.className = 'gauge-value prob-' + cls;
 
   const status = document.getElementById('gauge-status');
-  status.textContent = statusText(score);
-  status.className = 'gauge-status danger-' + cls;
+  status.textContent = statusText(pct);
+  status.className = 'gauge-status prob-' + cls;
+}
+
+function renderSecondary(secondaryProbs) {
+  const grid = document.getElementById('sec-grid');
+  const sorted = Object.entries(secondaryProbs).sort((a, b) => b[1] - a[1]);
+  grid.innerHTML = sorted.map(([name, pct]) => {
+    const cls = probClass(pct);
+    return `
+      <div class="sec-card">
+        <div class="sec-label">${name}</div>
+        <div class="sec-value prob-${cls}">${pct.toFixed(1)}%</div>
+      </div>`;
+  }).join('');
 }
 
 function renderCategories(catScores) {
   const grid = document.getElementById('cat-grid');
-  // Sort by score descending
   const sorted = Object.entries(catScores).sort((a, b) => b[1] - a[1]);
-  grid.innerHTML = sorted.map(([name, score]) => {
-    const cls = dangerClass(score);
+  grid.innerHTML = sorted.map(([name, pct]) => {
+    const cls = probClass(pct);
+    // Bar width: scale to 100% max
+    const barW = Math.min(pct, 100);
     return `
       <div class="cat-card">
         <span class="cat-name">${name}</span>
         <div class="cat-bar-outer">
-          <div class="cat-bar-inner bg-${cls}" style="width:${score}%"></div>
+          <div class="cat-bar-inner bg-${cls}" style="width:${barW}%"></div>
         </div>
-        <span class="cat-score danger-${cls}">${score.toFixed(0)}</span>
+        <span class="cat-score prob-${cls}">${pct.toFixed(1)}%</span>
       </div>`;
   }).join('');
 }
 
 function renderIndicators(indicators) {
-  // Group by category
   const groups = {};
   indicators.forEach(ind => {
     if (!groups[ind.category]) groups[ind.category] = [];
@@ -510,19 +558,19 @@ function renderIndicators(indicators) {
   const container = document.getElementById('indicators-container');
   let html = '';
 
-  // Sort categories by max danger score
   const catOrder = Object.entries(groups)
-    .map(([cat, inds]) => [cat, Math.max(...inds.map(i => i.danger_score))])
+    .map(([cat, inds]) => [cat, Math.max(...inds.map(i => i.crash_prob))])
     .sort((a, b) => b[1] - a[1]);
 
   for (const [cat] of catOrder) {
-    const inds = groups[cat].sort((a, b) => b.danger_score - a.danger_score);
+    const inds = groups[cat].sort((a, b) => b.crash_prob - a.crash_prob);
     html += `<div class="category-group">`;
     html += `<div class="category-header">${cat}</div>`;
     html += `<div class="ind-grid">`;
     for (const ind of inds) {
-      const cls = dangerClass(ind.danger_score);
+      const cls = probClass(ind.crash_prob);
       const rawStr = formatRaw(ind.raw_value);
+      const barW = Math.min(ind.crash_prob, 100);
       html += `
         <div class="ind-card">
           <div class="ind-dot bg-${cls} glow-${cls}"></div>
@@ -531,9 +579,9 @@ function renderIndicators(indicators) {
             <div class="ind-meta">${ind.frequency} | Raw: ${rawStr} | Updated: ${ind.last_update}</div>
           </div>
           <div class="ind-bar-outer">
-            <div class="ind-bar-inner bg-${cls}" style="width:${ind.danger_score}%"></div>
+            <div class="ind-bar-inner bg-${cls}" style="width:${barW}%"></div>
           </div>
-          <div class="ind-score danger-${cls}">${ind.danger_score.toFixed(0)}</div>
+          <div class="ind-score prob-${cls}">${ind.crash_prob.toFixed(1)}%</div>
         </div>`;
     }
     html += `</div></div>`;
@@ -546,9 +594,6 @@ function renderChart(history) {
 
   const dates = history.map(h => h.date);
   const values = history.map(h => h.value);
-
-  // Color segments based on danger level
-  const colors = values.map(v => dangerColor(v));
 
   new Chart(ctx, {
     type: 'line',
@@ -565,9 +610,9 @@ function renderChart(history) {
         },
         tension: 0.1,
       },
-      // Danger zone bands
+      // Threshold lines
       {
-        data: dates.map(() => 65),
+        data: dates.map(() => 25),
         borderColor: 'rgba(255, 23, 68, 0.3)',
         borderWidth: 1,
         borderDash: [4, 4],
@@ -575,7 +620,7 @@ function renderChart(history) {
         fill: false,
       },
       {
-        data: dates.map(() => 40),
+        data: dates.map(() => 10),
         borderColor: 'rgba(0, 200, 83, 0.3)',
         borderWidth: 1,
         borderDash: [4, 4],
@@ -592,7 +637,7 @@ function renderChart(history) {
           mode: 'index',
           intersect: false,
           callbacks: {
-            label: (ctx) => ctx.datasetIndex === 0 ? `Danger: ${ctx.parsed.y.toFixed(1)}` : '',
+            label: (ctx) => ctx.datasetIndex === 0 ? `P(crash): ${ctx.parsed.y.toFixed(1)}%` : '',
             title: (items) => items[0]?.label || '',
           },
           filter: (item) => item.datasetIndex === 0,
@@ -608,7 +653,10 @@ function renderChart(history) {
         y: {
           min: 0, max: 100,
           grid: { color: 'rgba(30,42,66,0.5)' },
-          ticks: { color: '#6b7b8d' },
+          ticks: {
+            color: '#6b7b8d',
+            callback: (v) => v + '%',
+          },
         },
       },
       interaction: { mode: 'nearest', axis: 'x', intersect: false },
@@ -630,26 +678,30 @@ async function init() {
     document.getElementById('update-date').textContent = data.latest_date;
     document.getElementById('data-date').textContent = data.latest_date;
     document.getElementById('gen-date').textContent = data.generated_at;
-    document.getElementById('n-indicators').textContent = data.n_indicators;
+    document.getElementById('crash-def').textContent = data.primary_definition;
+    document.getElementById('n-models').textContent = data.n_models;
 
-    // Highest / lowest
-    const sorted = [...data.indicators].sort((a, b) => b.danger_score - a.danger_score);
-    if (sorted.length > 0) {
-      document.getElementById('highest-signal').innerHTML =
-        `<span class="danger-${dangerClass(sorted[0].danger_score)}">${sorted[0].name} (${sorted[0].danger_score})</span>`;
-      const lowest = sorted[sorted.length - 1];
-      document.getElementById('lowest-signal').innerHTML =
-        `<span class="danger-${dangerClass(lowest.danger_score)}">${lowest.name} (${lowest.danger_score})</span>`;
+    // Probabilities
+    const medCls = probClass(data.crash_prob_median);
+    document.getElementById('prob-median').innerHTML =
+      `<span class="prob-${medCls}">${data.crash_prob_median.toFixed(1)}%</span>`;
+    const p75Cls = probClass(data.crash_prob_p75);
+    document.getElementById('prob-p75').innerHTML =
+      `<span class="prob-${p75Cls}">${data.crash_prob_p75.toFixed(1)}%</span>`;
+
+    // Gauge (show median)
+    setGauge(data.crash_prob_median);
+
+    // Secondary probabilities
+    if (data.secondary_probs) {
+      renderSecondary(data.secondary_probs);
     }
-
-    // Gauge
-    setGauge(data.composite_score);
 
     // Categories
     renderCategories(data.category_scores);
 
     // Chart
-    renderChart(data.composite_history);
+    renderChart(data.crash_prob_history);
 
     // Indicators
     renderIndicators(data.indicators);

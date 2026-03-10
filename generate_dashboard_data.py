@@ -11,6 +11,11 @@ from pathlib import Path
 from datetime import datetime
 
 
+# Primary crash definition
+PRIMARY_THRESHOLD = 10
+PRIMARY_HORIZON = '6M'
+
+
 def generate_dashboard_data(data_dir=None):
     if data_dir is None:
         data_dir = Path(__file__).parent
@@ -23,8 +28,9 @@ def generate_dashboard_data(data_dir=None):
     latest = df.iloc[-1]
     latest_date = df.index[-1].strftime('%Y-%m-%d')
 
+    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
+
     # --- Indicator metadata ---
-    # Categories for grouping in the dashboard
     CATEGORIES = {
         'Volatility': ['VIX', 'VVIX', 'SKEW', 'REALIZED_VOL', 'VRP_INV', 'VIX_RV_SPREAD_INV'],
         'Credit': ['HY_OAS', 'IG_OAS', 'BBB_OAS', 'CP_SPREAD',
@@ -44,7 +50,6 @@ def generate_dashboard_data(data_dir=None):
         'Monetary Policy': ['FED_FUNDS', 'RRP_YOY_INV', 'SLOOS'],
     }
 
-    # Display names
     DISPLAY_NAMES = {
         'VIX': 'VIX (Fear Index)',
         'VVIX': 'VVIX (Vol of VIX)',
@@ -59,9 +64,7 @@ def generate_dashboard_data(data_dir=None):
         'CP_SPREAD': 'Commercial Paper Spread',
         'HY_OAS_MOMENTUM': 'HY Spread Momentum (1M)',
         'EBP': 'Excess Bond Premium',
-        'TED_SPREAD': 'TED Spread',
         'NFCI': 'Chicago Fed NFCI',
-        'STLFSI': 'St. Louis Fed Stress Index',
         'KCFSI': 'KC Fed Stress Index',
         'YC_10Y2Y_INV': 'Yield Curve (10Y-2Y)',
         'YC_10Y3M_INV': 'Yield Curve (10Y-3M)',
@@ -90,21 +93,19 @@ def generate_dashboard_data(data_dir=None):
         'COT_AM_NET_LONG': 'CFTC Asset Mgr Net Long',
         'GOLD_SP_RATIO': 'Gold / S&P 500 Ratio',
         'CU_AU_RATIO_INV': 'Copper / Gold Ratio',
-        'OIL_SHOCK': 'Oil Price Shock',
         'DXY': 'US Dollar Index',
         'FED_FUNDS': 'Fed Funds Rate',
         'RRP_YOY_INV': 'Fed Reverse Repo YoY',
         'SLOOS': 'Bank Lending Standards',
     }
 
-    # Publication frequency
     FREQUENCY = {
         'VIX': 'Daily', 'VVIX': 'Daily', 'SKEW': 'Daily',
         'REALIZED_VOL': 'Daily', 'VRP_INV': 'Daily', 'VIX_RV_SPREAD_INV': 'Daily',
         'HY_OAS': 'Daily', 'IG_OAS': 'Daily', 'CCC_OAS': 'Daily',
         'BBB_OAS': 'Daily', 'CP_SPREAD': 'Daily', 'HY_OAS_MOMENTUM': 'Daily',
-        'EBP': 'Monthly', 'TED_SPREAD': 'Daily',
-        'NFCI': 'Weekly', 'STLFSI': 'Weekly', 'KCFSI': 'Monthly',
+        'EBP': 'Monthly',
+        'NFCI': 'Weekly', 'KCFSI': 'Monthly',
         'YC_10Y2Y_INV': 'Daily', 'YC_10Y3M_INV': 'Daily',
         'FFR_10Y_INV': 'Daily', 'NYFED_RECESS_PROB': 'Daily',
         'INIT_CLAIMS': 'Weekly', 'SAHM': 'Monthly', 'UNRATE': 'Monthly',
@@ -118,30 +119,28 @@ def generate_dashboard_data(data_dir=None):
         'MARGIN_DEBT': 'Monthly', 'MARGIN_DEBT_YOY': 'Monthly',
         'COT_LEV_NET_LONG': 'Weekly', 'COT_AM_NET_LONG': 'Weekly',
         'GOLD_SP_RATIO': 'Daily', 'CU_AU_RATIO_INV': 'Daily',
-        'OIL_SHOCK': 'Daily', 'DXY': 'Daily',
+        'DXY': 'Daily',
         'FED_FUNDS': 'Monthly', 'RRP_YOY_INV': 'Daily', 'SLOOS': 'Quarterly',
     }
 
-    # --- Build indicator data ---
-    ds_cols = [c for c in df.columns if c.startswith('DS_')]
+    # --- Build indicator data (now using crash probabilities) ---
     indicators = []
 
     for cat_name, cat_indicators in CATEGORIES.items():
         for ind_name in cat_indicators:
-            ds_col = f'DS_{ind_name}'
-            if ds_col not in df.columns:
+            prob_col = f'PROB_{ind_name}'
+            if prob_col not in df.columns:
                 continue
 
-            danger = latest.get(ds_col, np.nan)
+            crash_prob = latest.get(prob_col, np.nan)
             raw = latest.get(ind_name, np.nan)
 
-            if pd.isna(danger):
+            if pd.isna(crash_prob):
                 continue
 
             # Compute staleness
             raw_series = df[ind_name].dropna()
             if len(raw_series) > 0:
-                # Find last date where value actually changed (not ffilled)
                 changes = raw_series.diff().ne(0)
                 last_change_dates = raw_series.index[changes]
                 if len(last_change_dates) > 0:
@@ -155,55 +154,80 @@ def generate_dashboard_data(data_dir=None):
                 'id': ind_name,
                 'name': DISPLAY_NAMES.get(ind_name, ind_name),
                 'category': cat_name,
-                'danger_score': round(float(danger), 1),
+                'crash_prob': round(float(crash_prob) * 100, 1),  # as percentage
                 'raw_value': round(float(raw), 4) if not pd.isna(raw) else None,
                 'frequency': FREQUENCY.get(ind_name, 'Unknown'),
                 'last_update': last_update,
             })
 
-    # --- Composite history (last 5 years daily, then monthly before that) ---
-    composite = df['COMPOSITE'].dropna()
+    # --- Main crash probability (primary definition) ---
+    median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
+    p75_col = f'CRASH_PROB_P75_{primary_tag}'
+    mean_col = f'CRASH_PROB_MEAN_{primary_tag}'
+    n_models_col = f'N_MODELS_{primary_tag}'
 
-    # Last 5 years: daily
-    five_years_ago = composite.index[-1] - pd.DateOffset(years=5)
-    recent = composite[composite.index >= five_years_ago]
+    crash_prob_median = float(latest.get(median_col, 0)) * 100
+    crash_prob_p75 = float(latest.get(p75_col, 0)) * 100
+    crash_prob_mean = float(latest.get(mean_col, 0)) * 100
+    n_models = int(latest.get(n_models_col, 0))
 
-    # Before that: monthly (first business day of month)
-    older = composite[composite.index < five_years_ago]
-    if len(older) > 0:
-        older_monthly = older.resample('MS').first().dropna()
+    # --- Secondary crash probabilities ---
+    secondary_probs = {}
+    for threshold in [5, 10, 15, 20]:
+        for horizon in ['3M', '6M', '12M']:
+            tag = f'{threshold}pct_{horizon}'
+            col = f'CRASH_PROB_MEDIAN_{tag}'
+            if col in df.columns and not pd.isna(latest.get(col)):
+                secondary_probs[f'DD>{threshold}% in {horizon}'] = round(
+                    float(latest[col]) * 100, 1)
+
+    # --- Crash probability history (last 5 years daily, monthly before) ---
+    if median_col in df.columns:
+        prob_history = df[median_col].dropna() * 100  # convert to %
+
+        five_years_ago = prob_history.index[-1] - pd.DateOffset(years=5)
+        recent = prob_history[prob_history.index >= five_years_ago]
+
+        older = prob_history[prob_history.index < five_years_ago]
+        if len(older) > 0:
+            older_monthly = older.resample('MS').first().dropna()
+        else:
+            older_monthly = pd.Series(dtype=float)
+
+        history_index = list(older_monthly.index) + list(recent.index)
+        history_values = list(older_monthly.values) + list(recent.values)
+
+        crash_prob_history = [
+            {'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
+            for d, v in zip(history_index, history_values)
+        ]
     else:
-        older_monthly = pd.Series(dtype=float)
+        crash_prob_history = []
 
-    # Combine
-    history_index = list(older_monthly.index) + list(recent.index)
-    history_values = list(older_monthly.values) + list(recent.values)
-
-    composite_history = [
-        {'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
-        for d, v in zip(history_index, history_values)
-    ]
-
-    # --- Category averages ---
+    # --- Category averages (median P(crash) within each category) ---
     category_scores = {}
     for cat_name, cat_indicators in CATEGORIES.items():
-        scores = []
+        probs = []
         for ind_name in cat_indicators:
-            ds_col = f'DS_{ind_name}'
-            if ds_col in df.columns and not pd.isna(latest.get(ds_col)):
-                scores.append(float(latest[ds_col]))
-        if scores:
-            category_scores[cat_name] = round(np.mean(scores), 1)
+            prob_col = f'PROB_{ind_name}'
+            if prob_col in df.columns and not pd.isna(latest.get(prob_col)):
+                probs.append(float(latest[prob_col]) * 100)
+        if probs:
+            category_scores[cat_name] = round(float(np.median(probs)), 1)
 
     # --- Assemble output ---
     dashboard = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'latest_date': latest_date,
-        'composite_score': round(float(latest.get('COMPOSITE', 0)), 1),
-        'n_indicators': int(latest.get('N_INDICATORS', 0)),
+        'crash_prob_median': round(crash_prob_median, 1),
+        'crash_prob_p75': round(crash_prob_p75, 1),
+        'crash_prob_mean': round(crash_prob_mean, 1),
+        'primary_definition': f'DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}',
+        'n_models': n_models,
+        'secondary_probs': secondary_probs,
         'category_scores': category_scores,
         'indicators': indicators,
-        'composite_history': composite_history,
+        'crash_prob_history': crash_prob_history,
     }
 
     # Save
@@ -211,9 +235,10 @@ def generate_dashboard_data(data_dir=None):
     with open(out_path, 'w') as f:
         json.dump(dashboard, f, indent=2)
     print(f"Dashboard data saved to {out_path}")
-    print(f"  Composite: {dashboard['composite_score']}/100")
+    print(f"  P(crash) median: {crash_prob_median:.1f}%")
+    print(f"  P(crash) P75:    {crash_prob_p75:.1f}%")
     print(f"  Indicators: {len(indicators)}")
-    print(f"  History points: {len(composite_history)}")
+    print(f"  History points: {len(crash_prob_history)}")
 
     return dashboard
 

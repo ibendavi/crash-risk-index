@@ -1,16 +1,15 @@
 """
 Market Crash Risk Index Builder
 ================================
-Downloads ~60 free indicators, normalizes each to a 0-100 danger score
-(using expanding-window percentile ranks to avoid look-ahead bias),
-combines into a composite crash risk index, and backtests against
-actual S&P 500 drawdowns.
+Downloads ~50 free indicators, computes expanding-window percentile ranks,
+runs per-indicator univariate logistic regressions to predict crash
+probability, and aggregates predictions across indicators.
 
 Usage:
     python build_crash_index.py
 
 Output:
-    crash_index_dataset.csv   - daily dataset with all indicators + composite
+    crash_index_dataset.csv   - daily dataset with indicators + crash probs
     crash_index_backtest.png  - backtest chart
 """
 
@@ -25,6 +24,7 @@ import numpy as np
 import pandas as pd
 import requests
 import yfinance as yf
+from sklearn.linear_model import LogisticRegression
 
 warnings.filterwarnings('ignore')
 
@@ -36,6 +36,14 @@ ANALYSIS_START = '1990-01-01'  # actual analysis starts here
 END_DATE = datetime.today().strftime('%Y-%m-%d')
 OUTPUT_DIR = Path(__file__).parent
 MIN_HISTORY = 252  # minimum days before computing percentile rank
+
+# Crash probability model parameters
+CRASH_THRESHOLDS = [5, 10, 15, 20]  # max drawdown thresholds (%)
+HORIZONS = {'3M': 63, '6M': 126, '12M': 252}  # in business days
+REFIT_EVERY = 21  # refit logistic regression monthly
+MIN_TRAIN_OBS = 100  # minimum training observations before first prediction
+PRIMARY_THRESHOLD = 10  # primary crash definition: DD > 10%
+PRIMARY_HORIZON = '6M'  # primary crash definition: within 6 months
 
 
 # ============================================================================
@@ -892,248 +900,216 @@ def normalize_indicators(indicators):
     return danger_scores, danger_scores_filled, miss_flags
 
 
-def orient_danger_scores(danger_scores, danger_scores_filled, sp500_prices):
-    """
-    Auto-orient danger scores so that HIGH score = BAD (predicts crashes).
+# ============================================================================
+# 4. COMPUTE CRASH PROBABILITIES (Univariate Logistic Regressions)
+# ============================================================================
 
-    For each indicator, compute its correlation with forward 6M max drawdown.
-    If the correlation is positive (high score → less severe drawdown = wrong),
-    flip the score: danger = 100 - score.
-
-    NOTE: Uses full-sample data to determine direction. This is look-ahead for
-    the SIGN only (not magnitude), which is standard practice — the structural
-    direction of an indicator (e.g., yield curve inversion = bad) is stable
-    over time.
-    """
-    print("\n=== Auto-orienting danger scores (data-driven direction) ===")
-
-    sp = sp500_prices.reindex(danger_scores.index, method='ffill')
-
-    # Compute forward 6M max drawdown
+def compute_forward_max_drawdown(sp500_prices, horizon_days, index):
+    """Compute forward max drawdown over a given horizon for each date."""
+    sp = sp500_prices.reindex(index, method='ffill')
     sp_arr = sp.values
-    fwd_dd = pd.Series(np.nan, index=danger_scores.index)
-    for i in range(len(sp_arr) - 126):
-        future = sp_arr[i+1:i+127]
-        if np.isnan(future).all():
+    n = len(sp_arr)
+    fwd_dd = np.full(n, np.nan)
+    for i in range(n - 1):
+        end = min(i + 1 + horizon_days, n)
+        future = sp_arr[i+1:end]
+        if np.all(np.isnan(future)):
             continue
-        fwd_dd.iloc[i] = (np.nanmin(future) / sp_arr[i] - 1) * 100
-
-    flipped = []
-    kept = []
-    skipped = []
-
-    for col in danger_scores.columns:
-        valid = danger_scores[col].notna() & fwd_dd.notna()
-        if valid.sum() < 500:
-            skipped.append(col)
-            continue
-
-        corr = danger_scores[col][valid].corr(fwd_dd[valid])
-
-        if corr > 0:
-            # Wrong direction: high score → less negative DD → flip
-            danger_scores[col] = 100 - danger_scores[col]
-            danger_scores_filled[col] = 100 - danger_scores_filled[col]
-            flipped.append((col, corr))
-            print(f"  [FLIP] {col:30s}  corr={corr:+.4f} -> flipped (100 - score)")
-        else:
-            kept.append((col, corr))
-            print(f"  [ OK ] {col:30s}  corr={corr:+.4f}")
-
-    if skipped:
-        print(f"  [SKIP] Insufficient data: {', '.join(skipped)}")
-
-    print(f"\n  Flipped {len(flipped)} / {len(danger_scores.columns)} indicators")
-    if flipped:
-        print(f"  Flipped: {', '.join(c for c, _ in flipped)}")
-
-    return danger_scores, danger_scores_filled
+        fwd_dd[i] = (np.nanmin(future) / sp_arr[i] - 1) * 100
+    return pd.Series(fwd_dd, index=index)
 
 
-# ============================================================================
-# 4. BUILD COMPOSITE INDEX
-# ============================================================================
-
-def build_composite(danger_scores):
+def compute_crash_probabilities(percentiles, sp500_prices):
     """
-    Build composite crash risk index as the equal-weighted average
-    of all available danger scores at each date.
+    For each indicator, run expanding-window logistic regression of
+    binary crash outcome on (percentile, percentile^2).
+
+    Aggregates across indicators via median, 75th percentile, and mean.
     """
-    print("\n=== Building composite crash risk index ===")
+    print("\n=== Computing crash probabilities (univariate logistic regressions) ===")
 
-    # Equal-weighted average (ignoring NaN)
-    composite = danger_scores.mean(axis=1)
-    count = danger_scores.notna().sum(axis=1)
+    index = percentiles.index
+    cols = percentiles.columns.tolist()
+    n_dates = len(index)
 
-    # Require at least 5 indicators to compute composite
-    composite = composite.where(count >= 5)
+    # Pre-compute forward max drawdowns for all horizons
+    fwd_dds = {}
+    for h_name, h_days in HORIZONS.items():
+        print(f"  Computing forward max drawdown ({h_name}, {h_days}d)...")
+        fwd_dds[h_name] = compute_forward_max_drawdown(sp500_prices, h_days, index)
 
-    result = pd.DataFrame({
-        'COMPOSITE': composite,
-        'N_INDICATORS': count,
-    }, index=danger_scores.index)
+    # Storage for all per-indicator predictions and aggregated probabilities
+    all_indicator_probs = {}  # key: (threshold, horizon) -> DataFrame of per-indicator probs
+    aggregate_probs = pd.DataFrame(index=index)
 
-    print(f"  Composite available from: {result['COMPOSITE'].first_valid_index().date()}")
-    print(f"  Avg indicators per day: {count.mean():.1f}")
-    print(f"  Composite mean: {composite.mean():.1f}")
-    print(f"  Composite std:  {composite.std():.1f}")
+    total_models = len(CRASH_THRESHOLDS) * len(HORIZONS) * len(cols)
+    model_count = 0
 
-    return result
+    for h_name, h_days in HORIZONS.items():
+        fwd_dd = fwd_dds[h_name]
+
+        for threshold in CRASH_THRESHOLDS:
+            crash_binary = (fwd_dd < -threshold).astype(float)
+            # NaN where fwd_dd is NaN (future not available)
+            crash_binary = crash_binary.where(fwd_dd.notna())
+
+            key = (threshold, h_name)
+            indicator_preds = pd.DataFrame(index=index)
+
+            for col in cols:
+                model_count += 1
+                pct = percentiles[col]
+                pct_sq = pct ** 2
+
+                # Build feature matrix
+                X_all = pd.DataFrame({'pct': pct, 'pct_sq': pct_sq})
+                predicted = np.full(n_dates, np.nan)
+
+                model = None
+                last_fit = -REFIT_EVERY  # force fit on first eligible date
+
+                for t in range(MIN_TRAIN_OBS, n_dates):
+                    # Refit periodically
+                    if t - last_fit >= REFIT_EVERY or model is None:
+                        X_train = X_all.iloc[:t]
+                        y_train = crash_binary.iloc[:t]
+                        # Valid = both features and target non-NaN
+                        valid = X_train.notna().all(axis=1) & y_train.notna()
+                        n_valid = valid.sum()
+                        if n_valid >= MIN_TRAIN_OBS:
+                            y_v = y_train[valid]
+                            if y_v.nunique() == 2:
+                                model = LogisticRegression(
+                                    solver='lbfgs', max_iter=200, C=1.0)
+                                model.fit(X_train[valid].values, y_v.values)
+                                last_fit = t
+
+                    # Predict at t
+                    if model is not None:
+                        x_t = X_all.iloc[t]
+                        if x_t.notna().all():
+                            predicted[t] = model.predict_proba(
+                                x_t.values.reshape(1, -1))[0, 1]
+
+                indicator_preds[col] = predicted
+
+            all_indicator_probs[key] = indicator_preds
+
+            # Aggregate across indicators
+            tag = f'{threshold}pct_{h_name}'
+            n_avail = indicator_preds.notna().sum(axis=1)
+            aggregate_probs[f'CRASH_PROB_MEDIAN_{tag}'] = indicator_preds.median(axis=1)
+            aggregate_probs[f'CRASH_PROB_P75_{tag}'] = indicator_preds.quantile(0.75, axis=1)
+            aggregate_probs[f'CRASH_PROB_MEAN_{tag}'] = indicator_preds.mean(axis=1)
+            aggregate_probs[f'N_MODELS_{tag}'] = n_avail
+
+            # Progress
+            med_val = indicator_preds.median(axis=1).dropna()
+            if len(med_val) > 0:
+                print(f"  DD>{threshold}% in {h_name}: median P(crash) latest={med_val.iloc[-1]:.3f}, "
+                      f"avg={med_val.mean():.3f}, models={len(cols)}")
+
+    print(f"\n  Total models fitted: {model_count} indicator x crash-definition combinations")
+    print(f"  Crash definitions: {len(CRASH_THRESHOLDS)} thresholds x {len(HORIZONS)} horizons "
+          f"= {len(CRASH_THRESHOLDS) * len(HORIZONS)}")
+
+    return aggregate_probs, all_indicator_probs
 
 
 # ============================================================================
 # 5. BACKTEST
 # ============================================================================
 
-def backtest(composite_df, danger_scores, sp500_prices, tbill_rate=None):
+def backtest(aggregate_probs, sp500_prices, tbill_rate=None):
     """
-    Backtest the composite index against forward S&P 500 returns.
-    tbill_rate: optional Series of annualized T-bill rate (e.g., 0.05 = 5%)
+    Backtest crash probability signals against forward S&P 500 returns.
+    Uses median and P75 crash probability as signals.
     """
     print("\n=== Running backtest ===")
 
-    # Get daily S&P 500 returns
-    sp = sp500_prices.reindex(composite_df.index, method='ffill')
-    composite = composite_df['COMPOSITE']
+    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
+    median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
+    p75_col = f'CRASH_PROB_P75_{primary_tag}'
 
-    # Forward returns at various horizons
-    horizons = {
-        '1M': 21,
-        '3M': 63,
-        '6M': 126,
-        '12M': 252,
-    }
+    if median_col not in aggregate_probs.columns:
+        print(f"  [WARN] Primary signal {median_col} not found, skipping backtest")
+        return aggregate_probs
 
-    fwd_returns = pd.DataFrame(index=composite_df.index)
+    sp = sp500_prices.reindex(aggregate_probs.index, method='ffill')
+    sp_daily_ret = sp.pct_change()
+
+    # Forward returns
+    bt = aggregate_probs.copy()
+    horizons = {'1M': 21, '3M': 63, '6M': 126, '12M': 252}
     for label, days in horizons.items():
-        fwd_returns[f'FWD_{label}'] = (sp.shift(-days) / sp - 1) * 100
+        bt[f'FWD_{label}'] = (sp.shift(-days) / sp - 1) * 100
 
-    # Max drawdown over next 6 months
-    fwd_dd = pd.Series(index=composite_df.index, dtype=float)
-    sp_arr = sp.values
-    for i in range(len(sp_arr) - 126):
-        future = sp_arr[i+1:i+127]
-        if np.isnan(future).all():
+    # Forward 6M max drawdown
+    fwd_dd = compute_forward_max_drawdown(sp500_prices, 126, aggregate_probs.index)
+    bt['FWD_MAX_DD_6M'] = fwd_dd
+
+    # --- Analysis by quintile of median P(crash) ---
+    signal = bt[median_col].dropna()
+    if len(signal) > 500:
+        bt_valid = bt.loc[signal.index].copy()
+        bt_valid['QUINTILE'] = pd.qcut(bt_valid[median_col], 5,
+                                        labels=['Q1_Low', 'Q2', 'Q3', 'Q4', 'Q5_High'],
+                                        duplicates='drop')
+
+        print(f"\n--- Forward S&P 500 Returns by Median P(crash) Quintile ---")
+        print(f"  Signal: {median_col}")
+        for col in [c for c in bt_valid.columns if c.startswith('FWD_')]:
+            print(f"\n  {col}:")
+            summary = bt_valid.groupby('QUINTILE', observed=False)[col].agg(
+                ['mean', 'median', 'std', 'count'])
+            summary = summary.round(2)
+            for q in summary.index:
+                row = summary.loc[q]
+                print(f"    {q:10s}  mean={row['mean']:+7.2f}%  median={row['median']:+7.2f}%  "
+                      f"std={row['std']:6.2f}%  n={int(row['count'])}")
+
+    # --- Realized crash rate by predicted probability bucket ---
+    print(f"\n--- Calibration: Predicted vs Realized Crash Rate ---")
+    print(f"  (DD > {PRIMARY_THRESHOLD}% within {PRIMARY_HORIZON})")
+    actual_crash = (fwd_dd < -PRIMARY_THRESHOLD).astype(float)
+    for prob_thresh in [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]:
+        mask = bt[median_col] >= prob_thresh
+        if mask.sum() < 50:
             continue
-        peak = sp_arr[i]
-        min_future = np.nanmin(future)
-        fwd_dd.iloc[i] = (min_future / peak - 1) * 100
-    fwd_returns['FWD_MAX_DD_6M'] = fwd_dd
-
-    # Combine
-    bt = pd.concat([composite_df, fwd_returns], axis=1).dropna(subset=['COMPOSITE'])
-
-    # --- Analysis by quintile ---
-    bt['QUINTILE'] = pd.qcut(bt['COMPOSITE'], 5, labels=['Q1_Low', 'Q2', 'Q3', 'Q4', 'Q5_High'])
-
-    print("\n--- Forward S&P 500 Returns by Composite Danger Quintile ---")
-    print("  (Q5_High = highest crash risk)")
-    for col in [c for c in fwd_returns.columns if 'FWD_' in c]:
-        print(f"\n  {col}:")
-        summary = bt.groupby('QUINTILE', observed=False)[col].agg(['mean', 'median', 'std', 'count'])
-        summary = summary.round(2)
-        for q in summary.index:
-            row = summary.loc[q]
-            print(f"    {q:10s}  mean={row['mean']:+7.2f}%  median={row['median']:+7.2f}%  "
-                  f"std={row['std']:6.2f}%  n={int(row['count'])}")
-
-    # --- High danger analysis ---
-    print("\n--- Probability of Large Drawdowns by Danger Level ---")
-    for threshold in [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]:
-        high_danger = bt[bt['COMPOSITE'] >= threshold]
-        if len(high_danger) == 0:
-            continue
-        n = len(high_danger)
-        pct_neg_3m = (high_danger['FWD_3M'] < 0).mean() * 100 if 'FWD_3M' in high_danger else 0
-        pct_neg_6m = (high_danger['FWD_6M'] < 0).mean() * 100 if 'FWD_6M' in high_danger else 0
-        pct_dd_10 = (high_danger['FWD_MAX_DD_6M'] < -10).mean() * 100
-        pct_dd_20 = (high_danger['FWD_MAX_DD_6M'] < -20).mean() * 100
-        avg_dd = high_danger['FWD_MAX_DD_6M'].mean()
-        print(f"  Composite >= {threshold}:  n={n:>5d}  "
-              f"P(3M<0)={pct_neg_3m:5.1f}%  P(6M<0)={pct_neg_6m:5.1f}%  "
-              f"P(DD>10%)={pct_dd_10:5.1f}%  P(DD>20%)={pct_dd_20:5.1f}%  "
-              f"Avg_DD={avg_dd:+.1f}%")
+        realized = actual_crash[mask].mean() * 100
+        n = mask.sum()
+        print(f"  P(crash) >= {prob_thresh:.0%}:  n={n:>5d}  realized={realized:5.1f}%  "
+              f"avg predicted={bt.loc[mask, median_col].mean():.1%}")
 
     # --- Correlation analysis ---
-    print("\n--- Correlation: Composite vs Forward Returns ---")
-    for col in [c for c in fwd_returns.columns]:
-        corr = bt['COMPOSITE'].corr(bt[col])
-        print(f"  {col:20s}  r = {corr:+.4f}")
-
-    # --- Feature selection: rank indicators by predictive power ---
-    print("\n--- Indicator Selection: Correlation with Forward 6M Max Drawdown ---")
-    print("  (more negative = better crash predictor)")
-    indicator_corrs = {}
-    for col in danger_scores.columns:
-        ds_col = danger_scores[col].reindex(bt.index)
-        valid = ds_col.notna() & bt['FWD_MAX_DD_6M'].notna()
-        if valid.sum() < 500:
+    print(f"\n--- Correlation: P(crash) vs Forward Returns ---")
+    for signal_col in [median_col, p75_col]:
+        if signal_col not in bt.columns:
             continue
-        corr = ds_col[valid].corr(bt['FWD_MAX_DD_6M'][valid])
-        indicator_corrs[col] = corr
+        print(f"\n  {signal_col}:")
+        for col in [c for c in bt.columns if c.startswith('FWD_')]:
+            valid = bt[signal_col].notna() & bt[col].notna()
+            if valid.sum() < 100:
+                continue
+            corr = bt.loc[valid, signal_col].corr(bt.loc[valid, col])
+            print(f"    {col:20s}  r = {corr:+.4f}")
 
-    sorted_corrs = sorted(indicator_corrs.items(), key=lambda x: x[1])
-    print(f"\n  {'Indicator':30s}  {'Corr w/ FwdDD':>14s}  {'Useful?':>7s}")
-    print(f"  {'------------------------------':30s}  {'--------------':>14s}  {'-------':>7s}")
-    useful_indicators = []
-    useless_indicators = []
-    for name, corr in sorted_corrs:
-        useful = corr < -0.05  # threshold: must have meaningful negative correlation
-        tag = 'YES' if useful else 'no'
-        if useful:
-            useful_indicators.append(name)
-        else:
-            useless_indicators.append(name)
-        print(f"  {name:30s}  {corr:+14.4f}  {tag:>7s}")
-
-    print(f"\n  Useful: {len(useful_indicators)} / {len(indicator_corrs)} indicators")
-    print(f"  Dropped: {', '.join(useless_indicators)}")
-
-    # --- Build weighted composite from useful indicators only ---
-    # Weight by absolute correlation (better predictors get more weight)
-    weights = {}
-    for name in useful_indicators:
-        weights[name] = abs(indicator_corrs[name])
-    total_w = sum(weights.values())
-    for k in weights:
-        weights[k] /= total_w  # normalize to sum to 1
-
-    # Weighted composite
-    weighted_composite = pd.Series(0.0, index=danger_scores.index)
-    weight_sum = pd.Series(0.0, index=danger_scores.index)
-    for name, w in weights.items():
-        valid = danger_scores[name].notna()
-        weighted_composite[valid] += danger_scores[name][valid] * w
-        weight_sum[valid] += w
-    weighted_composite = weighted_composite / weight_sum
-    weighted_composite = weighted_composite.where(weight_sum > 0.3)  # need 30%+ of weights
-
-    print(f"\n  Weighted composite mean: {weighted_composite.mean():.1f}")
-    print(f"  Weighted composite std:  {weighted_composite.std():.1f}")
-    wc_corr = weighted_composite.reindex(bt.index).corr(bt['FWD_MAX_DD_6M'])
-    eq_corr = composite.corr(bt['FWD_MAX_DD_6M'])
-    print(f"  Corr with FwdDD (weighted): {wc_corr:+.4f}  (equal-weight: {eq_corr:+.4f})")
-
-    # --- Strategy helper ---
-    sp_daily_ret = sp.pct_change()
-    valid_mask = composite.notna()
+    # --- Strategy backtest ---
+    valid_mask = bt[median_col].notna()
     sp_bh = sp_daily_ret[valid_mask].dropna()
 
-    # Risk-free rate: use actual T-bill if provided, else 2% constant
     if tbill_rate is not None:
-        rf_daily_series = tbill_rate.reindex(sp_daily_ret.index, method='ffill') / 100 / 252
+        rf_daily = tbill_rate.reindex(sp_daily_ret.index, method='ffill') / 100 / 252
     else:
-        rf_daily_series = pd.Series(0.02 / 252, index=sp_daily_ret.index)
-    rf_daily = rf_daily_series  # used in run_strategy
+        rf_daily = pd.Series(0.02 / 252, index=sp_daily_ret.index)
 
-    def run_strategy(comp_series, exit_thresh, entry_thresh, label=''):
-        """Backtest with hysteresis: exit when comp >= exit_thresh, re-enter when comp < entry_thresh."""
-        comp_lag = comp_series.shift(1)  # no look-ahead
-        # Build signal with hysteresis
-        in_market = pd.Series(True, index=comp_lag.index)
+    def run_strategy(signal_series, exit_thresh, entry_thresh, label=''):
+        """Exit when P(crash) >= exit_thresh, re-enter when < entry_thresh."""
+        sig_lag = signal_series.shift(1)
+        in_market = pd.Series(True, index=sig_lag.index)
         currently_in = True
-        for i in range(len(comp_lag)):
-            val = comp_lag.iloc[i]
+        for i in range(len(sig_lag)):
+            val = sig_lag.iloc[i]
             if pd.isna(val):
                 in_market.iloc[i] = currently_in
                 continue
@@ -1169,15 +1145,15 @@ def backtest(composite_df, danger_scores, sp500_prices, tbill_rate=None):
         }
 
     def print_strategy_row(r):
-        print(f"  {r['label']:>28s}  {r['ann_ret']:+7.2f}%  {r['ann_vol']:7.2f}%  {r['sharpe']:+6.3f}  "
+        print(f"  {r['label']:>35s}  {r['ann_ret']:+7.2f}%  {r['ann_vol']:7.2f}%  {r['sharpe']:+6.3f}  "
               f"{r['maxdd']:+7.2f}%  {r['pct_in']:6.1f}%  {r['n_trades']:>4d}  {r['total_ret']:+10.1f}%")
 
-    header = (f"  {'Strategy':>28s}  {'Ann.Ret':>8s}  {'Ann.Vol':>8s}  {'Sharpe':>7s}  "
+    header = (f"  {'Strategy':>35s}  {'Ann.Ret':>8s}  {'Ann.Vol':>8s}  {'Sharpe':>7s}  "
               f"{'MaxDD':>8s}  {'%InMkt':>7s}  {'#Tr':>4s}  {'TotalRet':>10s}")
-    sep = "  " + "-" * 100
+    sep = "  " + "-" * 107
 
-    # --- A. Equal-weight composite: single threshold ---
-    print("\n--- A. Equal-Weight Composite (single threshold) ---")
+    # Buy & Hold baseline
+    print(f"\n--- Strategy Backtest: P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}) ---")
     print(header)
     print(sep)
     bh_cum = (1 + sp_bh).cumprod()
@@ -1186,68 +1162,59 @@ def backtest(composite_df, danger_scores, sp500_prices, tbill_rate=None):
     bh_ann_vol = sp_bh.std() * np.sqrt(252) * 100
     bh_avg_rf = rf_daily.reindex(sp_bh.index, method='ffill').fillna(0.02/252).mean() * 252 * 100
     bh_sharpe = (bh_ann_ret - bh_avg_rf) / bh_ann_vol if bh_ann_vol > 0 else 0
-    print(f"  {'Buy & Hold':>28s}  {bh_ann_ret:+7.2f}%  {bh_ann_vol:7.2f}%  {bh_sharpe:+6.3f}  "
+    print(f"  {'Buy & Hold':>35s}  {bh_ann_ret:+7.2f}%  {bh_ann_vol:7.2f}%  {bh_sharpe:+6.3f}  "
           f"{((bh_cum/bh_cum.cummax())-1).min()*100:+7.2f}%  {'100.0%':>7s}  {'  --':>4s}  {bh_total:+10.1f}%")
-    for t in [50, 55, 60, 65, 70]:
-        r = run_strategy(composite, t, t, f'EqWt exit>={t}')
-        print_strategy_row(r)
 
-    # --- B. Equal-weight composite: hysteresis (exit/re-entry) ---
-    print("\n--- B. Equal-Weight Composite (exit/re-entry hysteresis) ---")
-    print(header)
-    print(sep)
-    for exit_t, entry_t in [(55, 40), (55, 45), (60, 40), (60, 45), (60, 50),
-                             (65, 45), (65, 50), (65, 55), (70, 50), (70, 55), (70, 60)]:
-        r = run_strategy(composite, exit_t, entry_t, f'EqWt exit>={exit_t} re<{entry_t}')
-        print_strategy_row(r)
-
-    # --- C. Weighted composite: single threshold ---
-    # NOTE: Weighted composite uses full-sample correlation for indicator selection
-    # and weighting. This is in-sample / look-ahead biased. Use equal-weight
-    # results (A/B) for honest out-of-sample assessment.
-    print("\n--- C. Weighted Composite (IN-SAMPLE weights — look-ahead biased) ---")
-    print(header)
-    print(sep)
-    for t in [50, 55, 60, 65, 70]:
-        r = run_strategy(weighted_composite, t, t, f'Wt exit>={t}')
-        print_strategy_row(r)
-
-    # --- D. Weighted composite: hysteresis (IN-SAMPLE — look-ahead biased) ---
-    print("\n--- D. Weighted Composite (exit/re-entry hysteresis) ---")
-    print(header)
-    print(sep)
-    for exit_t, entry_t in [(55, 40), (55, 45), (60, 40), (60, 45), (60, 50),
-                             (65, 45), (65, 50), (65, 55), (70, 50), (70, 55), (70, 60)]:
-        r = run_strategy(weighted_composite, exit_t, entry_t, f'Wt exit>={exit_t} re<{entry_t}')
-        print_strategy_row(r)
-
-    # --- Find the best strategies ---
-    print("\n--- Best Strategies (by Sharpe ratio) ---")
+    # Grid search over signal source and thresholds
     all_results = []
-    for comp_s, comp_name in [(composite, 'EqWt'), (weighted_composite, 'Wt')]:
-        for exit_t in range(50, 76, 5):
-            for entry_t in range(35, exit_t, 5):
-                r = run_strategy(comp_s, exit_t, entry_t, f'{comp_name} x>={exit_t} r<{entry_t}')
+    for signal_col, signal_name in [(median_col, 'Median'), (p75_col, 'P75')]:
+        if signal_col not in bt.columns:
+            continue
+        signal_series = bt[signal_col]
+        for exit_t in [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40]:
+            for entry_t in [0.05, 0.08, 0.10, 0.15, 0.20]:
+                if entry_t >= exit_t:
+                    continue
+                lbl = f'{signal_name} x>={exit_t:.0%} r<{entry_t:.0%}'
+                r = run_strategy(signal_series, exit_t, entry_t, lbl)
                 all_results.append(r)
-            # Also single threshold
-            r = run_strategy(comp_s, exit_t, exit_t, f'{comp_name} x>={exit_t}')
+            # Single threshold
+            lbl = f'{signal_name} x>={exit_t:.0%}'
+            r = run_strategy(signal_series, exit_t, exit_t, lbl)
             all_results.append(r)
 
-    # Sort by Sharpe, show top 15
     all_results.sort(key=lambda x: x['sharpe'], reverse=True)
-    print(header)
-    print(sep)
-    for r in all_results[:15]:
+    for r in all_results[:20]:
         print_strategy_row(r)
 
-    # Save the best strategy's equity curve
-    best = all_results[0]
-    bt['WEIGHTED_COMPOSITE'] = weighted_composite.reindex(bt.index)
+    # Also test across crash definitions
+    print(f"\n--- Best Strategy per Crash Definition ---")
+    print(header)
+    print(sep)
+    for h_name in HORIZONS:
+        for threshold in CRASH_THRESHOLDS:
+            tag = f'{threshold}pct_{h_name}'
+            med = f'CRASH_PROB_MEDIAN_{tag}'
+            if med not in bt.columns:
+                continue
+            best_sharpe = -999
+            best_r = None
+            for exit_t in [0.15, 0.20, 0.25, 0.30]:
+                for entry_t in [0.05, 0.10, 0.15]:
+                    if entry_t >= exit_t:
+                        continue
+                    r = run_strategy(bt[med], exit_t, entry_t,
+                                     f'DD>{threshold}%/{h_name} x>={exit_t:.0%} r<{entry_t:.0%}')
+                    if r['sharpe'] > best_sharpe:
+                        best_sharpe = r['sharpe']
+                        best_r = r
+            if best_r:
+                print_strategy_row(best_r)
 
     return bt
 
 
-def create_charts(bt, danger_scores, sp500_prices, output_dir):
+def create_charts(bt, sp500_prices, output_dir):
     """Create backtest visualization charts."""
     try:
         import matplotlib
@@ -1260,6 +1227,10 @@ def create_charts(bt, danger_scores, sp500_prices, output_dir):
 
     print("\n=== Creating charts ===")
 
+    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
+    median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
+    p75_col = f'CRASH_PROB_P75_{primary_tag}'
+
     fig, axes = plt.subplots(4, 1, figsize=(16, 20), sharex=True,
                               gridspec_kw={'height_ratios': [2, 1.5, 1, 1]})
 
@@ -1268,32 +1239,41 @@ def create_charts(bt, danger_scores, sp500_prices, output_dir):
     sp = sp500_prices.reindex(bt.index, method='ffill')
     ax1.semilogy(sp.index, sp.values, 'k-', linewidth=0.8)
     ax1.set_ylabel('S&P 500 (log scale)')
-    ax1.set_title('Market Crash Risk Index — Backtest', fontsize=14, fontweight='bold')
+    ax1.set_title(f'Crash Probability Model — P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON})',
+                  fontsize=14, fontweight='bold')
 
-    # Shade high-danger periods
-    composite = bt['COMPOSITE']
-    high_danger = composite >= 70
-    for start, end in _get_periods(high_danger):
-        ax1.axvspan(start, end, alpha=0.3, color='red')
-    ax1.legend(['S&P 500', 'Danger ≥ 70'], loc='upper left', fontsize=9)
+    # Shade high-probability periods
+    if median_col in bt.columns:
+        high_prob = bt[median_col] >= 0.25
+        for start, end in _get_periods(high_prob):
+            ax1.axvspan(start, end, alpha=0.3, color='red')
+        ax1.legend(['S&P 500', 'P(crash) >= 25%'], loc='upper left', fontsize=9)
     ax1.grid(True, alpha=0.3)
 
-    # Panel 2: Composite danger index
+    # Panel 2: Median crash probability
     ax2 = axes[1]
-    ax2.fill_between(composite.index, 0, composite.values, alpha=0.5,
-                     color='orangered', label='Composite Danger Score')
-    ax2.axhline(50, color='orange', linestyle='--', linewidth=0.8, label='Median (50)')
-    ax2.axhline(70, color='red', linestyle='--', linewidth=0.8, label='High Danger (70)')
-    ax2.axhline(80, color='darkred', linestyle='--', linewidth=0.8, label='Extreme (80)')
-    ax2.set_ylabel('Danger Score (0-100)')
+    if median_col in bt.columns:
+        med = bt[median_col] * 100  # convert to percentage
+        ax2.fill_between(med.index, 0, med.values, alpha=0.5,
+                         color='orangered', label='Median P(crash)')
+        if p75_col in bt.columns:
+            p75 = bt[p75_col] * 100
+            ax2.plot(p75.index, p75.values, color='darkred', linewidth=0.8,
+                     alpha=0.7, label='P75 P(crash)')
+        ax2.axhline(10, color='orange', linestyle='--', linewidth=0.8, label='10%')
+        ax2.axhline(25, color='red', linestyle='--', linewidth=0.8, label='25%')
+        ax2.axhline(40, color='darkred', linestyle='--', linewidth=0.8, label='40%')
+    ax2.set_ylabel(f'P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}) %')
     ax2.set_ylim(0, 100)
     ax2.legend(loc='upper left', fontsize=8)
     ax2.grid(True, alpha=0.3)
 
-    # Panel 3: Number of indicators available
+    # Panel 3: Number of models contributing
+    n_col = f'N_MODELS_{primary_tag}'
     ax3 = axes[2]
-    ax3.fill_between(bt.index, 0, bt['N_INDICATORS'].values, alpha=0.5, color='steelblue')
-    ax3.set_ylabel('# Indicators')
+    if n_col in bt.columns:
+        ax3.fill_between(bt.index, 0, bt[n_col].values, alpha=0.5, color='steelblue')
+    ax3.set_ylabel('# Models')
     ax3.grid(True, alpha=0.3)
 
     # Panel 4: Forward 6-month max drawdown
@@ -1343,55 +1323,60 @@ def main():
 
     output_dir = Path(args.output_dir) if args.output_dir else OUTPUT_DIR
 
-    # 1. Download all data (no API key needed — uses FRED direct CSV)
+    # 1. Download all data
     fred_df, yf_df, ebp_df, margin_debt, put_call, cot_df = download_all_data()
 
     # 2. Compute all indicators
     indicators = compute_indicators(fred_df, yf_df, ebp_df, margin_debt,
                                     put_call, cot_df)
 
-    # 3. Normalize to danger scores
-    # danger_scores: NaN where unavailable (for composite, backtest)
-    # danger_scores_filled: NaN filled (for ML model, dataset export)
-    # miss_flags: MISS_{col} = 1 where originally missing
-    danger_scores, danger_scores_filled, miss_flags = normalize_indicators(indicators)
+    # 3. Percentile rank (expanding window, no look-ahead)
+    percentiles, _, miss_flags = normalize_indicators(indicators)
 
-    # 4. Get S&P 500 (needed for orientation and backtest)
+    # 4. Get S&P 500
     sp500 = None
     if 'SP500' in yf_df.columns:
         sp500 = yf_df['SP500']
     elif 'SP500_FRED' in fred_df.columns:
         sp500 = fred_df['SP500_FRED']
 
-    # 5. Auto-orient danger scores: data decides which direction = danger
-    if sp500 is not None:
-        danger_scores, danger_scores_filled = orient_danger_scores(
-            danger_scores, danger_scores_filled, sp500)
+    if sp500 is None:
+        print("[ERROR] No S&P 500 data — cannot compute crash probabilities")
+        return None
 
-    # 6. Build composite (uses NaN-aware version — only averages available indicators)
-    composite_df = build_composite(danger_scores)
+    # 5. Compute crash probabilities via per-indicator logistic regressions
+    aggregate_probs, indicator_probs = compute_crash_probabilities(percentiles, sp500)
 
-    # 7. Backtest
-    bt = None
-    if sp500 is not None:
-        # Pass T-bill rate for accurate Sharpe calculation
-        tbill = fred_df.get('DGS3MO') if 'DGS3MO' in fred_df.columns else None
-        bt = backtest(composite_df, danger_scores, sp500, tbill_rate=tbill)
+    # 6. Backtest
+    tbill = fred_df.get('DGS3MO') if 'DGS3MO' in fred_df.columns else None
+    bt = backtest(aggregate_probs, sp500, tbill_rate=tbill)
 
-    # 8. Save dataset
-    # Combine: raw indicators, danger scores (filled for ML), miss flags, composite
+    # 7. Save dataset
     dataset = indicators.copy()
-    for col in danger_scores_filled.columns:
-        dataset[f'DS_{col}'] = danger_scores_filled[col]
-    # Add missing-indicator flags
+
+    # Add percentile ranks
+    for col in percentiles.columns:
+        dataset[f'PCT_{col}'] = percentiles[col]
+
+    # Add per-indicator crash probs for primary definition
+    primary_key = (PRIMARY_THRESHOLD, PRIMARY_HORIZON)
+    if primary_key in indicator_probs:
+        primary_probs = indicator_probs[primary_key]
+        for col in primary_probs.columns:
+            dataset[f'PROB_{col}'] = primary_probs[col]
+
+    # Add aggregate crash probabilities
+    for col in aggregate_probs.columns:
+        dataset[col] = aggregate_probs[col]
+
+    # Add miss flags
     for col in miss_flags.columns:
         dataset[col] = miss_flags[col]
-    dataset['COMPOSITE'] = composite_df['COMPOSITE']
-    dataset['N_INDICATORS'] = composite_df['N_INDICATORS']
 
+    # Add forward returns from backtest
     if bt is not None:
-        for col in ['FWD_1M', 'FWD_3M', 'FWD_6M', 'FWD_12M', 'FWD_MAX_DD_6M']:
-            if col in bt.columns:
+        for col in bt.columns:
+            if col.startswith('FWD_') and col not in dataset.columns:
                 dataset[col] = bt[col]
 
     csv_path = output_dir / 'crash_index_dataset.csv'
@@ -1399,7 +1384,6 @@ def main():
     print(f"\n=== Dataset saved to {csv_path} ===")
     print(f"    Shape: {dataset.shape[0]} rows x {dataset.shape[1]} columns")
 
-    # Also save as parquet for faster loading
     try:
         parquet_path = output_dir / 'crash_index_dataset.parquet'
         dataset.to_parquet(parquet_path)
@@ -1407,32 +1391,48 @@ def main():
     except Exception:
         pass
 
-    # 9. Create charts
-    if sp500 is not None:
-        create_charts(bt, danger_scores, sp500, output_dir)
+    # 8. Create charts
+    create_charts(bt, sp500, output_dir)
 
-    # 10. Print current readings
+    # 9. Print current readings
     print("\n" + "="*70)
-    print("CURRENT CRASH RISK READINGS")
+    print("CURRENT CRASH PROBABILITY READINGS")
     print("="*70)
     latest = dataset.iloc[-1]
     print(f"\nDate: {dataset.index[-1].date()}")
-    print(f"COMPOSITE DANGER SCORE: {latest.get('COMPOSITE', 'N/A'):.1f} / 100")
-    print(f"Indicators available: {int(latest.get('N_INDICATORS', 0))}")
-    print(f"\nTop 10 most dangerous indicators (by danger score):")
-    ds_cols = [c for c in dataset.columns if c.startswith('DS_')]
-    current_ds = latest[ds_cols].dropna().sort_values(ascending=False).head(10)
-    for col in current_ds.index:
-        raw_col = col.replace('DS_', '')
-        raw_val = latest.get(raw_col, np.nan)
-        print(f"  {raw_col:30s}  danger={current_ds[col]:5.1f}  raw={raw_val:.2f}")
 
-    print(f"\nTop 10 least dangerous indicators:")
-    current_low = latest[ds_cols].dropna().sort_values().head(10)
-    for col in current_low.index:
-        raw_col = col.replace('DS_', '')
-        raw_val = latest.get(raw_col, np.nan)
-        print(f"  {raw_col:30s}  danger={current_low[col]:5.1f}  raw={raw_val:.2f}")
+    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
+    for agg in ['MEDIAN', 'P75', 'MEAN']:
+        col = f'CRASH_PROB_{agg}_{primary_tag}'
+        if col in dataset.columns:
+            val = latest.get(col, np.nan)
+            if not pd.isna(val):
+                print(f"  P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}) [{agg}]: {val:.1%}")
+
+    print(f"\nAll crash definitions (median P(crash)):")
+    for h_name in HORIZONS:
+        for threshold in CRASH_THRESHOLDS:
+            tag = f'{threshold}pct_{h_name}'
+            col = f'CRASH_PROB_MEDIAN_{tag}'
+            if col in dataset.columns:
+                val = latest.get(col, np.nan)
+                if not pd.isna(val):
+                    print(f"  DD>{threshold}% in {h_name}: {val:.1%}")
+
+    # Per-indicator probabilities for primary definition
+    prob_cols = [c for c in dataset.columns if c.startswith('PROB_')]
+    if prob_cols:
+        print(f"\nTop 10 indicators by P(crash) [DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}]:")
+        current_probs = latest[prob_cols].dropna().sort_values(ascending=False).head(10)
+        for col in current_probs.index:
+            ind_name = col.replace('PROB_', '')
+            print(f"  {ind_name:30s}  P(crash)={current_probs[col]:.1%}")
+
+        print(f"\nBottom 10 indicators:")
+        current_low = latest[prob_cols].dropna().sort_values().head(10)
+        for col in current_low.index:
+            ind_name = col.replace('PROB_', '')
+            print(f"  {ind_name:30s}  P(crash)={current_low[col]:.1%}")
 
     print("\nDone!")
     return dataset
