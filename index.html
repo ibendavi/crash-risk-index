@@ -432,6 +432,12 @@
       </div>
     </div>
 
+    <!-- Heatmap: realized drawdown + per-indicator crash probs -->
+    <div class="chart-section">
+      <div class="section-title" style="margin-bottom:12px">Indicator Heatmap vs Realized Drawdown</div>
+      <div id="heatmap-container" style="overflow-x:auto;"></div>
+    </div>
+
     <!-- Individual indicators -->
     <div class="indicators-section">
       <div class="section-title">Per-Indicator Crash Probability</div>
@@ -721,6 +727,102 @@ function renderChart(history) {
   });
 }
 
+function renderHeatmap(heatmap) {
+  if (!heatmap || !heatmap.dates || !heatmap.indicators) return;
+  const container = document.getElementById('heatmap-container');
+  const dates = heatmap.dates;
+  const realized = heatmap.realized_dd || [];
+  const indicators = heatmap.indicators;
+
+  // Downsample if too many dates (show ~every 3 months for labels)
+  const labelEvery = Math.max(1, Math.floor(dates.length / 40));
+
+  // Color function for crash prob (0-100%)
+  function probHeatColor(val) {
+    if (val === null || val === undefined) return '#0a0e17';
+    if (val < 10) return '#0d3320';
+    if (val < 20) return '#2e5d1e';
+    if (val < 30) return '#7a6b00';
+    if (val < 40) return '#8b4500';
+    if (val < 50) return '#a62800';
+    if (val < 60) return '#c41200';
+    return '#ff0000';
+  }
+
+  // Color function for realized drawdown (negative %)
+  function ddColor(val) {
+    if (val === null || val === undefined) return '#0a0e17';
+    const v = Math.abs(val);
+    if (v < 5) return '#0d3320';
+    if (v < 10) return '#2e5d1e';
+    if (v < 15) return '#7a6b00';
+    if (v < 20) return '#8b4500';
+    if (v < 30) return '#a62800';
+    return '#ff0000';
+  }
+
+  const cellW = Math.max(2, Math.min(6, Math.floor(1200 / dates.length)));
+  const cellH = 14;
+  const labelW = 180;
+  const totalW = labelW + dates.length * cellW + 20;
+  const rowCount = indicators.length + 1; // +1 for realized DD row
+  const headerH = 30;
+  const totalH = headerH + rowCount * (cellH + 1) + 40;
+
+  let svg = `<svg width="${totalW}" height="${totalH}" style="font-family:'Segoe UI',system-ui,sans-serif;">`;
+
+  // Date labels on top
+  for (let i = 0; i < dates.length; i += labelEvery) {
+    const x = labelW + i * cellW;
+    const yr = dates[i].substring(0, 4);
+    svg += `<text x="${x}" y="12" fill="#6b7b8d" font-size="9" text-anchor="start" transform="rotate(-45,${x},12)">${yr}</text>`;
+  }
+
+  let y = headerH;
+
+  // Row 1: Realized forward max drawdown
+  svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#fff" font-size="10" text-anchor="end" font-weight="600">Fwd 6M Max DD</text>`;
+  for (let i = 0; i < dates.length; i++) {
+    const val = realized[i];
+    const color = ddColor(val);
+    svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
+    svg += `<title>${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
+  }
+  y += cellH + 4; // extra gap after realized
+
+  // Separator line
+  svg += `<line x1="${labelW}" y1="${y - 2}" x2="${labelW + dates.length * cellW}" y2="${y - 2}" stroke="#333" stroke-width="1"/>`;
+
+  // Indicator rows
+  for (const ind of indicators) {
+    svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#c8d6e5" font-size="9" text-anchor="end">${ind.name}</text>`;
+    for (let i = 0; i < dates.length; i++) {
+      const val = ind.values[i];
+      const color = probHeatColor(val);
+      svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
+      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
+    }
+    y += cellH + 1;
+  }
+
+  // Legend
+  y += 10;
+  const legendColors = [
+    ['< 10%', '#0d3320'], ['10-20%', '#2e5d1e'], ['20-30%', '#7a6b00'],
+    ['30-40%', '#8b4500'], ['40-50%', '#a62800'], ['50%+', '#ff0000']
+  ];
+  svg += `<text x="${labelW}" y="${y + 10}" fill="#6b7b8d" font-size="9">P(crash):</text>`;
+  let lx = labelW + 55;
+  for (const [label, color] of legendColors) {
+    svg += `<rect x="${lx}" y="${y}" width="14" height="14" fill="${color}" rx="2"/>`;
+    svg += `<text x="${lx + 18}" y="${y + 11}" fill="#6b7b8d" font-size="9">${label}</text>`;
+    lx += 60;
+  }
+
+  svg += '</svg>';
+  container.innerHTML = svg;
+}
+
 // --- Load and render ---
 async function init() {
   try {
@@ -762,6 +864,9 @@ async function init() {
 
     // Chart
     renderChart(data.crash_prob_history);
+
+    // Heatmap
+    if (data.heatmap) renderHeatmap(data.heatmap);
 
     // Indicators
     renderIndicators(data.indicators);

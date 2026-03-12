@@ -231,7 +231,7 @@ def download_all_data():
         'HY_OAS': 'BAMLH0A0HYM2',
         'IG_OAS': 'BAMLC0A0CM',
         'CCC_OAS': 'BAMLH0A3HYC',
-        'BAA_AAA': 'BAMLC0A4CBBB',  # BBB OAS (proxy for quality spread)
+        'BBB_OAS_RAW': 'BAMLC0A4CBBB',  # BBB OAS
         # Funding stress
         # TED_SPREAD (TEDRATE) removed: LIBOR discontinued Jan 2022, series stale
         'CP_RATE': 'DCPF3M',  # 3M financial CP rate (daily)
@@ -275,6 +275,11 @@ def download_all_data():
         'SP500_FRED': 'SP500',
         # GDP (for Buffett indicator)
         'GDP': 'GDP',
+        # Wilshire 5000 Total Market Full Cap Index (for Buffett indicator)
+        # At inception 1 index point = $1B market cap; used as market cap proxy
+        'WILL5000': 'WILL5000IND',
+        # NY Fed recession probability (published series)
+        'NYFED_RECESS': 'RECPROUSM156N',
         # Fed Reverse Repo (ON RRP) - liquidity plumbing
         'REVERSE_REPO': 'RRPONTSYD',
     }
@@ -433,8 +438,8 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         indicators['CCC_OAS'] = to_daily(fred_df['CCC_OAS'])
 
     # BBB OAS
-    if 'BAA_AAA' in fred_df.columns:
-        indicators['BBB_OAS'] = to_daily(fred_df['BAA_AAA'])
+    if 'BBB_OAS_RAW' in fred_df.columns:
+        indicators['BBB_OAS'] = to_daily(fred_df['BBB_OAS_RAW'])
 
     # TED Spread: REMOVED (LIBOR discontinued Jan 2022)
 
@@ -646,25 +651,38 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         indicators['INDPRO_YOY_INV'] = to_daily(indpro_yoy)  # auto-oriented later
         print("  [OK] Industrial Production YoY")
 
-    # --- NY Fed Recession Probability (from 10Y-3M spread) ---
-    if 'YC_10Y3M' in fred_df.columns:
+    # --- NY Fed Recession Probability ---
+    # Prefer the published FRED series (RECPROUSM156N); fall back to probit formula
+    if 'NYFED_RECESS' in fred_df.columns and fred_df['NYFED_RECESS'].dropna().shape[0] > 50:
+        recess_prob = to_daily(fred_df['NYFED_RECESS'])
+        indicators['NYFED_RECESS_PROB'] = recess_prob
+        print("  [OK] NY Fed Recession Probability (FRED published series)")
+    elif 'YC_10Y3M' in fred_df.columns:
         spread = to_daily(fred_df['YC_10Y3M'])
         from scipy.stats import norm
-        recession_prob = norm.cdf(-0.6045 - 0.7374 * spread) * 100
+        # Estrella-Mishkin probit: P(recession 12m ahead) = Phi(a + b * spread)
+        recession_prob = norm.cdf(-0.5333 - 0.6330 * spread) * 100
         indicators['NYFED_RECESS_PROB'] = recession_prob
-        print("  [OK] NY Fed Recession Probability")
+        print("  [OK] NY Fed Recession Probability (Estrella-Mishkin probit)")
 
-    # --- Buffett Indicator (Market Cap / GDP, using Wilshire 5000) ---
-    if 'WILSHIRE' in yf_df.columns and 'GDP' in fred_df.columns:
-        wilshire = to_daily(yf_df['WILSHIRE'])
+    # --- Buffett Indicator (Total Market Cap / GDP) ---
+    # Standard: total US stock market cap / GDP * 100
+    # Wilshire 5000 Full Cap Index was calibrated at inception so 1 pt ≈ $1B market cap
+    # FRED WILL5000IND is the preferred source; yfinance ^W5000 as fallback
+    if 'GDP' in fred_df.columns:
         gdp = to_daily(fred_df['GDP'])
-        # Wilshire 5000: at inception (1980), 1 point ≈ $1B market cap.
-        # As of 2024: ~48K index vs ~$50T actual market cap → proxy still reasonable.
-        # GDP is in $B annual rate.
-        buffett = (wilshire / gdp * 100) if gdp is not None else None
-        if buffett is not None:
+        wilshire = None
+        if 'WILL5000' in fred_df.columns and fred_df['WILL5000'].dropna().shape[0] > 100:
+            wilshire = to_daily(fred_df['WILL5000'])
+            src = 'FRED WILL5000IND'
+        elif 'WILSHIRE' in yf_df.columns:
+            wilshire = to_daily(yf_df['WILSHIRE'])
+            src = 'yfinance ^W5000'
+        if wilshire is not None:
+            # Both Wilshire index and GDP are in $B-equivalent units
+            buffett = wilshire / gdp * 100
             indicators['BUFFETT_IND'] = buffett
-            print("  [OK] Buffett Indicator (proxy)")
+            print(f"  [OK] Buffett Indicator (market cap/GDP via {src})")
 
     # --- FINRA Margin Debt scaled by GDP (higher = more speculation = more danger) ---
     if margin_debt is not None and len(margin_debt.dropna()) > 0:
@@ -679,19 +697,11 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         else:
             indicators['MARGIN_DEBT'] = md
             print("  [OK] Margin Debt (raw, no GDP data)")
-        # YoY growth of GDP-scaled margin debt (captures leverage growth vs economy)
-        # Compute on raw monthly data before forward-fill
-        if 'GDP' in fred_df.columns:
-            gdp_raw = fred_df['GDP'].dropna()
-            md_raw = margin_debt.dropna()
-            # Align monthly data, compute ratio, then YoY
-            md_gdp_raw = (md_raw / 1000) / gdp_raw.reindex(md_raw.index, method='ffill') * 100
-            md_yoy_raw = md_gdp_raw.pct_change(12) * 100  # 12 monthly obs
-            indicators['MARGIN_DEBT_YOY'] = to_daily(md_yoy_raw)
-        else:
-            md_yoy_raw = margin_debt.dropna().pct_change(12) * 100
-            indicators['MARGIN_DEBT_YOY'] = to_daily(md_yoy_raw)
-        print("  [OK] Margin Debt YoY Growth (GDP-scaled)")
+        # YoY growth of raw margin debt (standard practitioner measure)
+        md_raw = margin_debt.dropna()
+        md_yoy_raw = md_raw.pct_change(12) * 100  # 12 monthly obs
+        indicators['MARGIN_DEBT_YOY'] = to_daily(md_yoy_raw)
+        print("  [OK] Margin Debt YoY Growth (raw)")
 
     # --- CBOE Put/Call Ratio (higher = more puts = more fear = contrarian bullish) ---
     # But extreme LOW values = complacency = danger. Invert: low P/C = high danger
@@ -793,7 +803,7 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
     indicator_source = {
         'VIX': 'VIX', 'VVIX': 'VVIX', 'SKEW': 'SKEW',
         'HY_OAS': 'HY_OAS', 'IG_OAS': 'IG_OAS', 'CCC_OAS': 'CCC_OAS',
-        'BBB_OAS': 'BAA_AAA',
+        'BBB_OAS': 'BBB_OAS_RAW',
         'CP_SPREAD': 'CP_RATE', 'NFCI': 'NFCI',
         'KCFSI': 'KCFSI', 'INIT_CLAIMS': 'CLAIMS_4WK',
         'SAHM': 'SAHM', 'SLOOS': 'SLOOS_CI', 'UNRATE': 'UNRATE',

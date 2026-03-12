@@ -221,8 +221,8 @@ def generate_dashboard_data(data_dir=None):
         },
         'NYFED_RECESS_PROB': {
             'what': 'The NY Fed\'s estimated probability of recession within the next 12 months, based on the Estrella-Mishkin probit model using the yield curve spread.',
-            'calc': 'P(recession) = Phi(-0.6045 - 0.7374 * Spread_10Y3M), where Phi is the standard normal CDF and the spread is in percentage points.',
-            'source': 'Derived from 10Y-3M Treasury spread using the Estrella-Mishkin (1998) probit specification',
+            'calc': 'Published by the NY Fed. Based on the Estrella-Mishkin (1998) probit model: P(recession in 12M) = Phi(alpha + beta * Spread_10Y3M). The NY Fed periodically re-estimates the coefficients.',
+            'source': 'NY Fed via FRED: RECPROUSM156N (published monthly)',
             'thresholds': {'green': '< 10%', 'yellow': '10-30%', 'red': '> 30%'},
             'direction': 'Higher = more recession risk = danger',
         },
@@ -333,7 +333,7 @@ def generate_dashboard_data(data_dir=None):
         },
         'BUFFETT_IND': {
             'what': 'Warren Buffett\'s "single best measure of where valuations stand": total stock market capitalization as a percentage of GDP. Persistently high readings suggest overvaluation.',
-            'calc': 'Buffett Indicator = (Total Market Cap / GDP) * 100. Proxied here as Wilshire 5000 index / GDP (at inception, 1 Wilshire point ~ $1B market cap).',
+            'calc': 'Buffett Indicator = (Total US Market Cap / GDP) * 100. Uses Wilshire 5000 Full Cap Index (FRED: WILL5000IND), where at inception 1 point = $1B market cap, divided by nominal GDP.',
             'source': 'Wilshire 5000 (yfinance: ^W5000) / GDP (FRED: GDP)',
             'thresholds': {'green': '< 100%', 'yellow': '120-150%', 'red': '> 150%'},
             'direction': 'Higher = more overvalued = danger',
@@ -353,9 +353,9 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = more speculative leverage = danger',
         },
         'MARGIN_DEBT_YOY': {
-            'what': 'Year-over-year growth in GDP-scaled margin debt. Rapid leverage growth signals accelerating speculation. Sharp declines can signal forced deleveraging.',
-            'calc': 'YoY% = (MarginDebt/GDP(t) / MarginDebt/GDP(t-12) - 1) * 100.',
-            'source': 'Derived from FINRA margin statistics and GDP',
+            'what': 'Year-over-year growth in raw FINRA margin debt (debit balances). Rapid leverage growth signals accelerating speculation. Sharp declines can signal forced deleveraging.',
+            'calc': 'YoY% = (MarginDebt(t) / MarginDebt(t-12) - 1) * 100. Computed on raw monthly dollar values.',
+            'source': 'FINRA margin statistics (monthly)',
             'thresholds': {'green': '+5% to +15%', 'yellow': '> +25% or < -10%', 'red': '> +30% or < -15%'},
             'direction': 'Extreme growth or decline = danger',
         },
@@ -542,6 +542,46 @@ def generate_dashboard_data(data_dir=None):
         if probs:
             category_scores[cat_name] = round(float(np.percentile(probs, 90)), 1)
 
+    # --- Heatmap data: per-indicator crash prob time series + realized drawdown ---
+    # Sample monthly to keep JSON size manageable
+    prob_cols = [f'PROB_{ind_name}' for cat_inds in CATEGORIES.values()
+                 for ind_name in cat_inds if f'PROB_{ind_name}' in df.columns]
+    # Also get the forward max drawdown (realized outcome)
+    fwd_dd_col = 'FWD_MAX_DD_6M'
+
+    # Monthly sampling (first business day of each month)
+    monthly_idx = df.resample('MS').first().index
+    monthly_idx = monthly_idx[monthly_idx.isin(df.index)]
+
+    heatmap_dates = [d.strftime('%Y-%m-%d') for d in monthly_idx]
+
+    # Realized drawdown series
+    if fwd_dd_col in df.columns:
+        fwd_dd_monthly = df[fwd_dd_col].reindex(monthly_idx)
+        heatmap_realized = [round(float(v), 2) if not pd.isna(v) else None
+                           for v in fwd_dd_monthly.values]
+    else:
+        heatmap_realized = []
+
+    # Per-indicator crash prob time series
+    heatmap_indicators = []
+    for cat_name, cat_inds in CATEGORIES.items():
+        for ind_name in cat_inds:
+            prob_col = f'PROB_{ind_name}'
+            if prob_col not in df.columns:
+                continue
+            series = df[prob_col].reindex(monthly_idx)
+            values = [round(float(v) * 100, 1) if not pd.isna(v) else None
+                      for v in series.values]
+            # Only include if has some data
+            if any(v is not None for v in values):
+                heatmap_indicators.append({
+                    'id': ind_name,
+                    'name': DISPLAY_NAMES.get(ind_name, ind_name),
+                    'category': cat_name,
+                    'values': values,
+                })
+
     # --- Assemble output ---
     dashboard = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
@@ -556,6 +596,11 @@ def generate_dashboard_data(data_dir=None):
         'category_scores': category_scores,
         'indicators': indicators,
         'crash_prob_history': crash_prob_history,
+        'heatmap': {
+            'dates': heatmap_dates,
+            'realized_dd': heatmap_realized,
+            'indicators': heatmap_indicators,
+        },
     }
 
     # Save
