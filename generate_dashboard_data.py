@@ -583,7 +583,7 @@ def generate_dashboard_data(data_dir=None):
             if pct_col not in df.columns:
                 continue
             series = df[pct_col].reindex(monthly_idx)
-            values = [round(float(v) * 100, 1) if not pd.isna(v) else None
+            values = [round(float(v), 1) if not pd.isna(v) else None
                       for v in series.values]
             # Only include if has some data
             if any(v is not None for v in values):
