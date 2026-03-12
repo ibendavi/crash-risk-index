@@ -885,7 +885,7 @@ function renderHeatmap(heatmap) {
 // --- Load and render ---
 async function init() {
   try {
-    const resp = await fetch('dashboard_data.json');
+    const resp = await fetch('dashboard_data.json?v=' + Date.now());
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
