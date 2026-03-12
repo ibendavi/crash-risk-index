@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10 11:21",
+  "generated_at": "2026-03-12 09:36",
   "latest_date": "2026-03-10",
   "crash_prob_p90": 32.6,
   "crash_prob_p75": 24.7,
@@ -41,7 +41,16 @@
       "crash_prob": 33.1,
       "raw_value": 25.5,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The CBOE Volatility Index measures the market's expectation of 30-day S&P 500 volatility, derived from option prices. Often called the \"fear gauge.\"",
+      "calc": "Model-free variance swap formula aggregating prices of OTM S&P 500 puts and calls across two expiration dates bracketing 30 days: VIX = 100 * sqrt((2/T) * sum[(dK/K^2) * e^(rT) * Q(K)] - (1/T)*(F/K0 - 1)^2)",
+      "source": "CBOE (FRED: VIXCLS)",
+      "thresholds": {
+        "green": "< 15",
+        "yellow": "20-30",
+        "red": "> 30"
+      },
+      "direction": "Higher = more fear = more danger"
     },
     {
       "id": "VVIX",
@@ -50,7 +59,16 @@
       "crash_prob": 27.1,
       "raw_value": 122.6,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The CBOE VVIX measures the expected volatility of the VIX itself -- the \"volatility of volatility.\" Spikes when options markets are uncertain about future fear levels.",
+      "calc": "Same model-free variance swap methodology as VIX, but applied to VIX options instead of S&P 500 options.",
+      "source": "CBOE (yfinance: ^VVIX)",
+      "thresholds": {
+        "green": "< 85",
+        "yellow": "100-120",
+        "red": "> 120"
+      },
+      "direction": "Higher = more uncertainty about volatility = danger"
     },
     {
       "id": "SKEW",
@@ -59,7 +77,16 @@
       "crash_prob": 20.6,
       "raw_value": 157.98,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The CBOE SKEW Index measures perceived tail risk by quantifying the skewness of S&P 500 returns implied by option prices. Higher values mean the market prices a greater probability of extreme left-tail moves.",
+      "calc": "SKEW = 100 - 10 * S, where S is the implied third moment (skewness) extracted from OTM option prices. Baseline of 100 = log-normal returns (no skew).",
+      "source": "CBOE (yfinance: ^SKEW)",
+      "thresholds": {
+        "green": "< 115",
+        "yellow": "115-135",
+        "red": "> 135"
+      },
+      "direction": "Higher = more tail risk priced in"
     },
     {
       "id": "REALIZED_VOL",
@@ -68,7 +95,16 @@
       "crash_prob": 18.0,
       "raw_value": 11.287,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The annualized standard deviation of daily S&P 500 log-returns over the past 22 trading days. Measures actual (not implied) market turbulence.",
+      "calc": "RV = std(ln(P_t / P_{t-1}), window=22) * sqrt(252) * 100, where P is the S&P 500 daily close.",
+      "source": "Derived from S&P 500 prices (yfinance: ^GSPC)",
+      "thresholds": {
+        "green": "< 12%",
+        "yellow": "15-25%",
+        "red": "> 25%"
+      },
+      "direction": "Higher = more turbulence = danger"
     },
     {
       "id": "VRP_INV",
@@ -77,7 +113,16 @@
       "crash_prob": 34.0,
       "raw_value": 522.8534,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The Variance Risk Premium is the difference between implied variance (VIX^2) and realized variance. A positive VRP is normal (investors pay a premium for protection). When VRP turns negative, realized volatility has exceeded what was priced in -- the market was surprised.",
+      "calc": "VRP = VIX^2 - RealizedVol(22d)^2. Positive = normal risk premium. Negative = realized > implied = danger.",
+      "source": "Derived from VIX and S&P 500 returns",
+      "thresholds": {
+        "green": "100-300",
+        "yellow": "< 50 or > 400",
+        "red": "< 0"
+      },
+      "direction": "Lower/negative = more danger (market surprised by vol)"
     },
     {
       "id": "VIX_RV_SPREAD_INV",
@@ -86,7 +131,16 @@
       "crash_prob": 31.3,
       "raw_value": 14.213,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The spread between VIX and realized volatility. A positive spread means implied vol exceeds realized (normal). A negative spread means realized vol has spiked above what was expected.",
+      "calc": "Spread = VIX - RealizedVol(22d). Positive = cushion. Negative = market surprised.",
+      "source": "Derived from VIX and S&P 500 returns",
+      "thresholds": {
+        "green": "2-6 pts",
+        "yellow": "> 10 or < 0",
+        "red": "< -5"
+      },
+      "direction": "Lower/negative = more danger"
     },
     {
       "id": "HY_OAS",
@@ -95,7 +149,16 @@
       "crash_prob": 18.3,
       "raw_value": 3.19,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The option-adjusted spread on high-yield (junk) corporate bonds over Treasuries. Measures the extra yield investors demand to hold risky corporate debt. Widens sharply when credit risk rises.",
+      "calc": "OAS = HY bond yield - comparable-maturity Treasury yield, adjusted for embedded options using interest rate models. Reported in basis points.",
+      "source": "ICE BofA US High Yield Index (FRED: BAMLH0A0HYM2)",
+      "thresholds": {
+        "green": "< 350 bps",
+        "yellow": "400-600 bps",
+        "red": "> 600 bps"
+      },
+      "direction": "Higher = more credit risk = danger"
     },
     {
       "id": "IG_OAS",
@@ -104,7 +167,16 @@
       "crash_prob": 17.3,
       "raw_value": 0.85,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The option-adjusted spread on investment-grade corporate bonds. Widens when even high-quality corporate borrowers face stress.",
+      "calc": "Same OAS methodology as HY but applied to investment-grade (BBB- and above) bonds.",
+      "source": "ICE BofA US Corporate Index (FRED: BAMLC0A0CM)",
+      "thresholds": {
+        "green": "< 100 bps",
+        "yellow": "120-200 bps",
+        "red": "> 200 bps"
+      },
+      "direction": "Higher = more credit risk = danger"
     },
     {
       "id": "BBB_OAS",
@@ -113,7 +185,16 @@
       "crash_prob": 18.9,
       "raw_value": 1.07,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The spread on BBB-rated bonds -- the lowest investment-grade tier. These bonds are one notch above junk, making them sensitive to downgrade risk during downturns.",
+      "calc": "OAS on BBB-rated corporate bonds vs. Treasuries.",
+      "source": "ICE BofA BBB US Corporate Index (FRED: BAMLC0A4CBBB)",
+      "thresholds": {
+        "green": "< 130 bps",
+        "yellow": "150-250 bps",
+        "red": "> 250 bps"
+      },
+      "direction": "Higher = more credit risk = danger"
     },
     {
       "id": "CP_SPREAD",
@@ -122,7 +203,16 @@
       "crash_prob": 24.8,
       "raw_value": 0.04,
       "frequency": "Daily",
-      "last_update": "2026-03-05"
+      "last_update": "2026-03-05",
+      "what": "The spread between 3-month financial commercial paper and 3-month Treasury bills. Measures short-term funding stress for financial institutions.",
+      "calc": "CP Spread = 3-Month Financial CP Rate - 3-Month T-Bill Rate (both annualized yields).",
+      "source": "FRED: DCPF3M (CP rate), DTB3 (T-bill rate)",
+      "thresholds": {
+        "green": "< 50 bps",
+        "yellow": "75-150 bps",
+        "red": "> 150 bps"
+      },
+      "direction": "Higher = more funding stress = danger"
     },
     {
       "id": "HY_OAS_MOMENTUM",
@@ -131,7 +221,16 @@
       "crash_prob": 34.4,
       "raw_value": 0.35,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The 21-day change in high-yield credit spreads. Rapidly widening spreads signal deteriorating credit conditions and often precede broader market stress.",
+      "calc": "HY_OAS_Momentum = HY_OAS(t) - HY_OAS(t-21). Positive = spreads widening.",
+      "source": "Derived from ICE BofA HY OAS",
+      "thresholds": {
+        "green": "< 25 bps",
+        "yellow": "50-100 bps",
+        "red": "> 100 bps"
+      },
+      "direction": "Higher (widening) = danger"
     },
     {
       "id": "EBP",
@@ -140,7 +239,16 @@
       "crash_prob": 11.5,
       "raw_value": -0.2957,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The Excess Bond Premium from Gilchrist & Zakrajsek (2012) decomposes corporate bond spreads into a component explained by firm fundamentals and a residual (the EBP) that captures investor risk appetite. Elevated EBP = risk aversion.",
+      "calc": "Residual from regressing corporate bond spreads on firm-level default risk measures (distance-to-default, leverage, earnings). Requires firm-level bond data.",
+      "source": "Federal Reserve Board (published monthly)",
+      "thresholds": {
+        "green": "< 0%",
+        "yellow": "0-0.5%",
+        "red": "> 0.5%"
+      },
+      "direction": "Higher = more risk aversion = danger"
     },
     {
       "id": "NFCI",
@@ -149,7 +257,16 @@
       "crash_prob": 18.9,
       "raw_value": -0.5236,
       "frequency": "Weekly",
-      "last_update": "2026-03-05"
+      "last_update": "2026-03-05",
+      "what": "The Chicago Fed National Financial Conditions Index aggregates 105 measures of financial activity (money markets, debt, equity, banking, shadow banking). Zero = long-run average conditions.",
+      "calc": "Principal component analysis on 105 weekly financial indicators, normalized so that zero = average and positive = tighter-than-average conditions.",
+      "source": "Chicago Fed (FRED: NFCI)",
+      "thresholds": {
+        "green": "< -0.5",
+        "yellow": "0 to 0.5",
+        "red": "> 0.5"
+      },
+      "direction": "Higher (positive) = tighter financial conditions = danger"
     },
     {
       "id": "KCFSI",
@@ -158,7 +275,16 @@
       "crash_prob": 13.1,
       "raw_value": -0.5703,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The Kansas City Fed Financial Stress Index measures the level of stress in U.S. financial markets using 11 variables including credit spreads, equity vol, and interbank lending.",
+      "calc": "Principal component analysis on 11 financial market variables. Zero = long-run average; positive = above-average stress.",
+      "source": "Kansas City Fed (FRED: KCFSI)",
+      "thresholds": {
+        "green": "< 0",
+        "yellow": "0-1.0",
+        "red": "> 1.0"
+      },
+      "direction": "Higher = more stress = danger"
     },
     {
       "id": "YC_10Y2Y_INV",
@@ -167,7 +293,16 @@
       "crash_prob": 20.5,
       "raw_value": 0.56,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The spread between 10-year and 2-year Treasury yields. An inverted curve (negative spread) has preceded every U.S. recession since 1970, typically 12-18 months ahead.",
+      "calc": "10Y-2Y Spread = 10-Year Treasury Yield - 2-Year Treasury Yield. Negative = inverted.",
+      "source": "FRED: T10Y2Y (or DGS10 minus DGS2)",
+      "thresholds": {
+        "green": "> 100 bps",
+        "yellow": "0-50 bps",
+        "red": "< 0 bps (inverted)"
+      },
+      "direction": "Lower/negative = more danger (recession signal)"
     },
     {
       "id": "YC_10Y3M_INV",
@@ -176,7 +311,16 @@
       "crash_prob": 19.7,
       "raw_value": 0.41,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The spread between 10-year and 3-month Treasury yields. The NY Fed's preferred yield curve measure for recession forecasting. Arguably more reliable than 10Y-2Y.",
+      "calc": "10Y-3M Spread = 10-Year Treasury Yield - 3-Month Treasury Yield.",
+      "source": "FRED: T10Y3M (or DGS10 minus DGS3MO)",
+      "thresholds": {
+        "green": "> 150 bps",
+        "yellow": "0-50 bps",
+        "red": "< 0 bps (inverted)"
+      },
+      "direction": "Lower/negative = more danger"
     },
     {
       "id": "FFR_10Y_INV",
@@ -185,7 +329,16 @@
       "crash_prob": 19.6,
       "raw_value": -0.51,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The spread between the Fed Funds Rate and the 10-year Treasury yield. When the policy rate exceeds the long rate, monetary policy is restrictive -- historically associated with recession.",
+      "calc": "FFR-10Y Spread = Effective Federal Funds Rate - 10-Year Treasury Yield. Positive = policy rate above long rate.",
+      "source": "FRED: FEDFUNDS minus DGS10",
+      "thresholds": {
+        "green": "< -100 bps",
+        "yellow": "-50 to +50 bps",
+        "red": "> 0 bps"
+      },
+      "direction": "Higher (positive) = restrictive policy = danger"
     },
     {
       "id": "NYFED_RECESS_PROB",
@@ -194,7 +347,16 @@
       "crash_prob": 19.7,
       "raw_value": 18.2247,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The NY Fed's estimated probability of recession within the next 12 months, based on the Estrella-Mishkin probit model using the yield curve spread.",
+      "calc": "P(recession) = Phi(-0.6045 - 0.7374 * Spread_10Y3M), where Phi is the standard normal CDF and the spread is in percentage points.",
+      "source": "Derived from 10Y-3M Treasury spread using the Estrella-Mishkin (1998) probit specification",
+      "thresholds": {
+        "green": "< 10%",
+        "yellow": "10-30%",
+        "red": "> 30%"
+      },
+      "direction": "Higher = more recession risk = danger"
     },
     {
       "id": "INIT_CLAIMS",
@@ -203,7 +365,16 @@
       "crash_prob": 17.9,
       "raw_value": 0.1266,
       "frequency": "Weekly",
-      "last_update": "2026-03-06"
+      "last_update": "2026-03-06",
+      "what": "Weekly initial unemployment insurance claims (4-week average), scaled by the civilian labor force. Rising claims signal deteriorating labor market conditions.",
+      "calc": "(4-Week Average Initial Claims) / (Civilian Labor Force * 1000) * 100. Expressed as claims per 100 workers.",
+      "source": "DOL via FRED: IC4WSA (4-wk avg), CLF16OV (labor force)",
+      "thresholds": {
+        "green": "< 0.15%",
+        "yellow": "0.15-0.20%",
+        "red": "> 0.20%"
+      },
+      "direction": "Higher = more layoffs = danger"
     },
     {
       "id": "SAHM",
@@ -212,7 +383,16 @@
       "crash_prob": 24.3,
       "raw_value": 0.27,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "Claudia Sahm's real-time recession indicator. When the 3-month average unemployment rate rises 0.50 percentage points above its 12-month low, a recession has begun. Every trigger since 1970 has correctly identified recession.",
+      "calc": "Sahm Rule = (3-month avg U-rate) - (min U-rate over prior 12 months). Trigger at >= 0.50 pp.",
+      "source": "FRED: SAHMREALTIME",
+      "thresholds": {
+        "green": "< 0.20 pp",
+        "yellow": "0.30-0.50 pp",
+        "red": ">= 0.50 pp"
+      },
+      "direction": "Higher = recession signal = danger"
     },
     {
       "id": "UNRATE",
@@ -221,7 +401,16 @@
       "crash_prob": 22.5,
       "raw_value": 4.4,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The U.S. civilian unemployment rate from the Bureau of Labor Statistics. A lagging indicator of recessions but important for confirming economic weakness.",
+      "calc": "(Number of unemployed / Civilian labor force) * 100. Based on the Current Population Survey (CPS), ~60,000 households monthly.",
+      "source": "BLS via FRED: UNRATE",
+      "thresholds": {
+        "green": "< 4.0%",
+        "yellow": "4.5-5.5%",
+        "red": "> 5.5%"
+      },
+      "direction": "Higher = weaker labor market = danger"
     },
     {
       "id": "NFP_MOM_INV",
@@ -230,7 +419,16 @@
       "crash_prob": 35.7,
       "raw_value": 5.6667,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The 3-month rolling average of monthly changes in nonfarm payrolls. Smooths noisy monthly jobs reports. Declining momentum signals the labor market is losing steam.",
+      "calc": "NFP_Mom = rolling_mean(diff(PAYEMS), 3 months). PAYEMS is total nonfarm payrolls in thousands.",
+      "source": "BLS via FRED: PAYEMS",
+      "thresholds": {
+        "green": "> 200K",
+        "yellow": "50-100K",
+        "red": "< 50K"
+      },
+      "direction": "Lower = weaker job growth = danger"
     },
     {
       "id": "DGORDER_YOY_INV",
@@ -239,7 +437,16 @@
       "crash_prob": 14.9,
       "raw_value": 10.0974,
       "frequency": "Monthly",
-      "last_update": "2025-12-25"
+      "last_update": "2025-12-25",
+      "what": "Year-over-year growth in new orders for durable goods (goods lasting 3+ years). A leading indicator of business investment and economic health.",
+      "calc": "YoY% = (DGORDER(t) / DGORDER(t-12) - 1) * 100. DGORDER is monthly total durable goods orders ($M, seasonally adjusted).",
+      "source": "Census Bureau via FRED: DGORDER",
+      "thresholds": {
+        "green": "> +5%",
+        "yellow": "-5% to 0%",
+        "red": "< -5%"
+      },
+      "direction": "Lower/negative = weakening demand = danger"
     },
     {
       "id": "INDPRO_YOY_INV",
@@ -248,7 +455,16 @@
       "crash_prob": 16.2,
       "raw_value": 2.275,
       "frequency": "Monthly",
-      "last_update": "2026-01-29"
+      "last_update": "2026-01-29",
+      "what": "Year-over-year growth in the Federal Reserve's Industrial Production Index, measuring output of manufacturing, mining, and utilities. Negative growth has historically accompanied every recession.",
+      "calc": "YoY% = (INDPRO(t) / INDPRO(t-12) - 1) * 100. INDPRO is an index (2017=100).",
+      "source": "Federal Reserve via FRED: INDPRO",
+      "thresholds": {
+        "green": "> +2%",
+        "yellow": "-2% to 0%",
+        "red": "< -2%"
+      },
+      "direction": "Lower/negative = contraction = danger"
     },
     {
       "id": "PERMIT_YOY_INV",
@@ -257,7 +473,16 @@
       "crash_prob": 24.0,
       "raw_value": -2.1622,
       "frequency": "Monthly",
-      "last_update": "2025-12-29"
+      "last_update": "2025-12-29",
+      "what": "Year-over-year growth in new housing building permits. Housing is a leading sector -- permit declines of 20%+ have preceded every recession since 1960.",
+      "calc": "YoY% = (PERMIT(t) / PERMIT(t-12) - 1) * 100. PERMIT is monthly new private housing units authorized (thousands, SAAR).",
+      "source": "Census Bureau via FRED: PERMIT",
+      "thresholds": {
+        "green": "> 0%",
+        "yellow": "-10% to -20%",
+        "red": "< -20%"
+      },
+      "direction": "Lower/negative = housing weakness = danger"
     },
     {
       "id": "PHILLY_MFG_INV",
@@ -266,7 +491,16 @@
       "crash_prob": 16.9,
       "raw_value": 16.3,
       "frequency": "Monthly",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The Philadelphia Fed Manufacturing Business Outlook Survey diffusion index. A reading above 0 indicates expansion. One of the oldest and most-watched regional manufacturing surveys.",
+      "calc": "Diffusion Index = (% reporting increase) - (% reporting decrease) for general business activity. Range roughly -40 to +50.",
+      "source": "Philadelphia Fed via FRED: GACDFSA066MSFRBPHI",
+      "thresholds": {
+        "green": "> +10",
+        "yellow": "-10 to 0",
+        "red": "< -10"
+      },
+      "direction": "Lower/negative = contraction = danger"
     },
     {
       "id": "UMICH_INV",
@@ -275,7 +509,16 @@
       "crash_prob": 31.5,
       "raw_value": 56.4,
       "frequency": "Monthly",
-      "last_update": "2026-02-05"
+      "last_update": "2026-02-05",
+      "what": "The University of Michigan Consumer Sentiment Index. Based on a monthly survey of ~500 households about their financial conditions and economic outlook. A leading indicator of consumer spending.",
+      "calc": "Composite index from 5 survey questions about personal finances (current and expected) and business conditions (short-run and long-run), plus buying conditions. Base period 1966 = 100.",
+      "source": "University of Michigan via FRED: UMCSENT",
+      "thresholds": {
+        "green": "> 85",
+        "yellow": "70-80",
+        "red": "< 70"
+      },
+      "direction": "Lower = pessimistic consumers = danger"
     },
     {
       "id": "M2_GROWTH_INV",
@@ -284,7 +527,16 @@
       "crash_prob": 16.6,
       "raw_value": 4.2863,
       "frequency": "Monthly",
-      "last_update": "2026-01-29"
+      "last_update": "2026-01-29",
+      "what": "Year-over-year growth in M2 money supply (cash, checking, savings, small CDs, money market funds). Negative M2 growth is extremely rare and signals severe liquidity contraction.",
+      "calc": "YoY% = (M2(t) / M2(t-12) - 1) * 100. M2 is in billions of dollars, seasonally adjusted.",
+      "source": "Federal Reserve via FRED: M2SL",
+      "thresholds": {
+        "green": "+3% to +6%",
+        "yellow": "0-3%",
+        "red": "< 0% (contraction)"
+      },
+      "direction": "Lower/negative = liquidity contraction = danger"
     },
     {
       "id": "SP500_VS_200DMA_INV",
@@ -293,7 +545,16 @@
       "crash_prob": 19.5,
       "raw_value": 2.6418,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The percentage distance of the S&P 500 from its 200-day moving average. A widely used trend indicator -- below the 200-DMA is considered bearish.",
+      "calc": "% vs 200-DMA = (S&P500 / SMA_200 - 1) * 100. Positive = above trend. Negative = below trend.",
+      "source": "Derived from S&P 500 daily closes (yfinance: ^GSPC)",
+      "thresholds": {
+        "green": "> +5%",
+        "yellow": "-5% to 0%",
+        "red": "< -5%"
+      },
+      "direction": "Lower/negative = below trend = danger"
     },
     {
       "id": "DEATH_CROSS",
@@ -302,7 +563,16 @@
       "crash_prob": 15.6,
       "raw_value": 0.0,
       "frequency": "Daily",
-      "last_update": "2025-06-30"
+      "last_update": "2025-06-30",
+      "what": "A binary technical signal: 1 when the 50-day moving average crosses below the 200-day moving average. Widely cited as a bearish signal in financial media.",
+      "calc": "Death Cross = 1 if SMA_50 < SMA_200, else 0. (Stored as 0 or 100 in the model.)",
+      "source": "Derived from S&P 500 daily closes",
+      "thresholds": {
+        "green": "Not active (0)",
+        "yellow": "Converging",
+        "red": "Active (1)"
+      },
+      "direction": "Active = bearish trend = danger"
     },
     {
       "id": "RSI_14",
@@ -311,7 +581,16 @@
       "crash_prob": 29.7,
       "raw_value": 43.8028,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The Relative Strength Index (14-day), a momentum oscillator measuring the speed and magnitude of recent price changes. Above 70 = overbought (vulnerable to correction), below 30 = oversold.",
+      "calc": "RSI = 100 - 100/(1+RS), where RS = EMA(gains, 14) / EMA(losses, 14). Uses Wilder's smoothing (alpha = 1/14).",
+      "source": "Derived from S&P 500 daily closes",
+      "thresholds": {
+        "green": "40-60",
+        "yellow": "> 70 or < 30",
+        "red": "> 80 or < 20"
+      },
+      "direction": "Extreme values (both high and low) = danger"
     },
     {
       "id": "MOMENTUM_12_1_INV",
@@ -320,7 +599,16 @@
       "crash_prob": 17.9,
       "raw_value": 22.8892,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "The Jegadeesh-Titman 12-1 month momentum: the S&P 500 return from 12 months ago to 1 month ago, excluding the most recent month. Negative momentum has historically preceded further declines.",
+      "calc": "Mom_12_1 = (P_{t-21} / P_{t-252} - 1) * 100. Skips the last 21 trading days to avoid short-term reversal.",
+      "source": "Derived from S&P 500 daily closes",
+      "thresholds": {
+        "green": "> +10%",
+        "yellow": "-10% to 0%",
+        "red": "< -10%"
+      },
+      "direction": "Lower/negative = weakening trend = danger"
     },
     {
       "id": "DRAWDOWN_1Y",
@@ -329,7 +617,16 @@
       "crash_prob": 14.9,
       "raw_value": -2.6167,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The current S&P 500 drawdown from its trailing 252-day (1-year) high. Measures how far the market has fallen from its recent peak.",
+      "calc": "DD = (P_t / max(P_{t-252:t}) - 1) * 100. Always <= 0. Zero = at the 1-year high.",
+      "source": "Derived from S&P 500 daily closes",
+      "thresholds": {
+        "green": "> -5%",
+        "yellow": "-10% to -15%",
+        "red": "< -20%"
+      },
+      "direction": "More negative = deeper drawdown = danger"
     },
     {
       "id": "BUFFETT_IND",
@@ -338,7 +635,16 @@
       "crash_prob": 20.2,
       "raw_value": 216.7697,
       "frequency": "Quarterly",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "Warren Buffett's \"single best measure of where valuations stand\": total stock market capitalization as a percentage of GDP. Persistently high readings suggest overvaluation.",
+      "calc": "Buffett Indicator = (Total Market Cap / GDP) * 100. Proxied here as Wilshire 5000 index / GDP (at inception, 1 Wilshire point ~ $1B market cap).",
+      "source": "Wilshire 5000 (yfinance: ^W5000) / GDP (FRED: GDP)",
+      "thresholds": {
+        "green": "< 100%",
+        "yellow": "120-150%",
+        "red": "> 150%"
+      },
+      "direction": "Higher = more overvalued = danger"
     },
     {
       "id": "HH_EQUITY_ALLOC",
@@ -347,7 +653,16 @@
       "crash_prob": 18.3,
       "raw_value": 47.0759,
       "frequency": "Quarterly",
-      "last_update": "2025-09-30"
+      "last_update": "2025-09-30",
+      "what": "Household equity allocation from the Fed's Flow of Funds (Z.1) report. Measures the share of household financial assets allocated to equities. High allocation = late-cycle euphoria.",
+      "calc": "Direct percentage from Fed Z.1 table. Represents corporate equities as a share of total household financial assets.",
+      "source": "Federal Reserve Flow of Funds (FRED: BOGZ1FL153064486Q)",
+      "thresholds": {
+        "green": "< 35%",
+        "yellow": "40-45%",
+        "red": "> 45%"
+      },
+      "direction": "Higher = more crowded into stocks = danger"
     },
     {
       "id": "MARGIN_DEBT",
@@ -356,7 +671,16 @@
       "crash_prob": 32.1,
       "raw_value": 4.0617,
       "frequency": "Monthly",
-      "last_update": "2026-03-05"
+      "last_update": "2026-03-05",
+      "what": "Total debit balances in customers' securities margin accounts at FINRA member broker-dealers, scaled by GDP. Measures the total amount of borrowed money used to buy stocks relative to the size of the economy.",
+      "calc": "Margin Debt / GDP = (FINRA Debit Balances in $M / 1000) / (GDP in $B) * 100. Expressed as a percentage.",
+      "source": "FINRA margin statistics (monthly), GDP (FRED: GDP)",
+      "thresholds": {
+        "green": "< 2.0%",
+        "yellow": "2.5-3.5%",
+        "red": "> 3.5%"
+      },
+      "direction": "Higher = more speculative leverage = danger"
     },
     {
       "id": "MARGIN_DEBT_YOY",
@@ -365,7 +689,16 @@
       "crash_prob": 26.5,
       "raw_value": 30.1922,
       "frequency": "Monthly",
-      "last_update": "2026-03-05"
+      "last_update": "2026-03-05",
+      "what": "Year-over-year growth in GDP-scaled margin debt. Rapid leverage growth signals accelerating speculation. Sharp declines can signal forced deleveraging.",
+      "calc": "YoY% = (MarginDebt/GDP(t) / MarginDebt/GDP(t-12) - 1) * 100.",
+      "source": "Derived from FINRA margin statistics and GDP",
+      "thresholds": {
+        "green": "+5% to +15%",
+        "yellow": "> +25% or < -10%",
+        "red": "> +30% or < -15%"
+      },
+      "direction": "Extreme growth or decline = danger"
     },
     {
       "id": "COT_LEV_NET_LONG",
@@ -374,7 +707,16 @@
       "crash_prob": 16.9,
       "raw_value": -19.7,
       "frequency": "Weekly",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "Net positioning of leveraged money (hedge funds, CTAs) in S&P 500 futures from the CFTC Commitments of Traders report. When \"smart money\" is heavily net short, it can signal informed bearishness.",
+      "calc": "Net Long = %OI Long (Leveraged) - %OI Short (Leveraged). Expressed as percentage of total open interest.",
+      "source": "CFTC Commitments of Traders, Financial Futures (weekly)",
+      "thresholds": {
+        "green": "Moderate net long",
+        "yellow": "Z-score > 1 or < -1",
+        "red": "Z-score > 2 (extreme net short)"
+      },
+      "direction": "More net short by smart money = danger"
     },
     {
       "id": "COT_AM_NET_LONG",
@@ -383,7 +725,16 @@
       "crash_prob": 24.1,
       "raw_value": 48.3,
       "frequency": "Weekly",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "Net positioning of asset managers (pensions, mutual funds, insurance) in S&P 500 futures. Extreme net long positioning by \"slow money\" can signal crowding and vulnerability to unwind.",
+      "calc": "Net Long = %OI Long (Asset Mgr) - %OI Short (Asset Mgr). Expressed as percentage of total open interest.",
+      "source": "CFTC Commitments of Traders, Financial Futures (weekly)",
+      "thresholds": {
+        "green": "Moderate",
+        "yellow": "Z-score > 1",
+        "red": "Z-score > 2 (extreme crowding)"
+      },
+      "direction": "Higher net long (crowding) = danger"
     },
     {
       "id": "GOLD_SP_RATIO",
@@ -392,7 +743,16 @@
       "crash_prob": 13.7,
       "raw_value": 0.7492,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The ratio of gold price to S&P 500. Rising ratio signals flight from risk assets to safe havens. Gold outperforms equities during stress periods.",
+      "calc": "Gold/SPX Ratio = Gold Futures Price / S&P 500 Index Level.",
+      "source": "Gold futures (yfinance: GC=F), S&P 500 (yfinance: ^GSPC)",
+      "thresholds": {
+        "green": "Low (< 0.4)",
+        "yellow": "0.4-0.6",
+        "red": "> 0.6 (flight to safety)"
+      },
+      "direction": "Higher = more flight to safety = danger"
     },
     {
       "id": "CU_AU_RATIO_INV",
@@ -401,7 +761,16 @@
       "crash_prob": 19.3,
       "raw_value": 0.0011,
       "frequency": "Daily",
-      "last_update": "2026-02-23"
+      "last_update": "2026-02-23",
+      "what": "The copper-to-gold ratio. Copper (\"Dr. Copper\") is pro-cyclical (industrial demand), while gold is counter-cyclical (safe haven). A declining ratio signals deteriorating growth expectations.",
+      "calc": "Cu/Au Ratio = Copper Futures Price / Gold Futures Price.",
+      "source": "Copper (yfinance: HG=F), Gold (yfinance: GC=F)",
+      "thresholds": {
+        "green": "Rising",
+        "yellow": "Flat",
+        "red": "Falling for 3+ months"
+      },
+      "direction": "Lower = risk-off / weak growth = danger"
     },
     {
       "id": "DXY",
@@ -410,7 +779,16 @@
       "crash_prob": 14.3,
       "raw_value": 99.18,
       "frequency": "Daily",
-      "last_update": "2026-03-09"
+      "last_update": "2026-03-09",
+      "what": "The US Dollar Index measures the value of the dollar against a basket of 6 major currencies (EUR 57.6%, JPY 13.6%, GBP 11.9%, CAD 9.1%, SEK 4.2%, CHF 3.6%). A strong dollar tightens global financial conditions.",
+      "calc": "Geometric weighted average of USD exchange rates vs. 6 currencies: DXY = 50.14348112 * prod(FX_i ^ w_i). Base March 1973 = 100.",
+      "source": "ICE Futures (yfinance: DX-Y.NYB)",
+      "thresholds": {
+        "green": "90-100",
+        "yellow": "> 105 or < 85",
+        "red": "> 110"
+      },
+      "direction": "Higher = stronger dollar = global tightening = danger"
     },
     {
       "id": "FED_FUNDS",
@@ -419,7 +797,16 @@
       "crash_prob": 20.9,
       "raw_value": 3.64,
       "frequency": "Monthly",
-      "last_update": "2026-02-05"
+      "last_update": "2026-02-05",
+      "what": "The effective federal funds rate -- the interest rate at which banks lend reserves to each other overnight. The primary tool of Federal Reserve monetary policy.",
+      "calc": "Volume-weighted median rate on overnight federal funds transactions reported by major brokers. Set by the FOMC within a target range.",
+      "source": "Federal Reserve via FRED: FEDFUNDS",
+      "thresholds": {
+        "green": "Below neutral rate (r*)",
+        "yellow": "Near r*",
+        "red": "Well above r*"
+      },
+      "direction": "Higher = tighter policy = danger"
     },
     {
       "id": "RRP_YOY_INV",
@@ -428,7 +815,16 @@
       "crash_prob": 33.6,
       "raw_value": -99.8347,
       "frequency": "Daily",
-      "last_update": "2026-03-10"
+      "last_update": "2026-03-10",
+      "what": "Year-over-year change in the Fed's Overnight Reverse Repo Facility (ON RRP) usage. The ON RRP absorbs excess liquidity. Declining usage = liquidity draining from the system.",
+      "calc": "YoY% = (ON_RRP(t) / ON_RRP(t-252) - 1) * 100. Uses 252 business days for daily data.",
+      "source": "NY Fed via FRED: RRPONTSYD",
+      "thresholds": {
+        "green": "Stable or rising",
+        "yellow": "Declining",
+        "red": "Rapid drain (< -50%)"
+      },
+      "direction": "Declining = liquidity draining = danger"
     },
     {
       "id": "SLOOS",
@@ -437,7 +833,16 @@
       "crash_prob": 22.1,
       "raw_value": 6.5,
       "frequency": "Quarterly",
-      "last_update": "2025-12-31"
+      "last_update": "2025-12-31",
+      "what": "The Federal Reserve's Senior Loan Officer Opinion Survey on bank lending practices. Net percentage of banks tightening standards on C&I loans. Sustained tightening has preceded every recession since 1990.",
+      "calc": "Net % Tightening = (% banks reporting tightened standards) - (% reporting eased standards). Positive = net tightening.",
+      "source": "Federal Reserve Board quarterly survey (FRED: DRTSCILM)",
+      "thresholds": {
+        "green": "< 0% (easing)",
+        "yellow": "20-40% (tightening)",
+        "red": "> 40% (severe)"
+      },
+      "direction": "Higher = tighter credit = danger"
     }
   ],
   "crash_prob_history": [

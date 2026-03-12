@@ -180,7 +180,41 @@
     gap: 10px;
     transition: border-color 0.2s;
   }
+  .ind-card { cursor: pointer; }
   .ind-card:hover { border-color: var(--accent); }
+  .ind-card.expanded { flex-wrap: wrap; }
+  .ind-detail {
+    width: 100%;
+    padding: 10px 0 4px 22px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text);
+    display: none;
+  }
+  .ind-card.expanded .ind-detail { display: block; }
+  .ind-detail p { margin-bottom: 6px; }
+  .ind-detail .detail-label {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .ind-detail .thresholds-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .ind-detail .thresh {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .thresh-green { background: rgba(0,200,83,0.15); color: var(--green); }
+  .thresh-yellow { background: rgba(255,214,0,0.15); color: var(--yellow); }
+  .thresh-red { background: rgba(255,23,68,0.15); color: var(--red); }
   .ind-dot {
     width: 12px;
     height: 12px;
@@ -575,17 +609,36 @@ function renderIndicators(indicators) {
       const cls = probClass(ind.crash_prob);
       const rawStr = formatRaw(ind.raw_value);
       const barW = Math.min(ind.crash_prob, 100);
+      const hasDetail = ind.what || ind.calc;
+      const thr = ind.thresholds || {};
+      let detailHtml = '';
+      if (hasDetail) {
+        detailHtml = '<div class="ind-detail">';
+        if (ind.what) detailHtml += `<p><span class="detail-label">What it is:</span> ${ind.what}</p>`;
+        if (ind.calc) detailHtml += `<p><span class="detail-label">Calculation:</span> ${ind.calc}</p>`;
+        if (ind.source) detailHtml += `<p><span class="detail-label">Source:</span> ${ind.source}</p>`;
+        if (ind.direction) detailHtml += `<p><span class="detail-label">Direction:</span> ${ind.direction}</p>`;
+        if (thr.green || thr.yellow || thr.red) {
+          detailHtml += '<div class="thresholds-row">';
+          if (thr.green) detailHtml += `<span class="thresh thresh-green">${thr.green}</span>`;
+          if (thr.yellow) detailHtml += `<span class="thresh thresh-yellow">${thr.yellow}</span>`;
+          if (thr.red) detailHtml += `<span class="thresh thresh-red">${thr.red}</span>`;
+          detailHtml += '</div>';
+        }
+        detailHtml += '</div>';
+      }
       html += `
-        <div class="ind-card">
+        <div class="ind-card" onclick="this.classList.toggle('expanded')">
           <div class="ind-dot bg-${cls} glow-${cls}"></div>
           <div class="ind-info">
-            <div class="ind-name">${ind.name}</div>
+            <div class="ind-name">${ind.name}${hasDetail ? ' <span style=\"font-size:0.65rem;color:var(--text-dim)\">&#9432;</span>' : ''}</div>
             <div class="ind-meta">${ind.frequency} | Raw: ${rawStr} | Updated: ${ind.last_update}</div>
           </div>
           <div class="ind-bar-outer">
             <div class="ind-bar-inner bg-${cls}" style="width:${barW}%"></div>
           </div>
           <div class="ind-score prob-${cls}">${ind.crash_prob.toFixed(1)}%</div>
+          ${detailHtml}
         </div>`;
     }
     html += `</div></div>`;
