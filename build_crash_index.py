@@ -31,8 +31,8 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-START_DATE = '1988-01-01'  # extra history for lookback windows
-ANALYSIS_START = '1990-01-01'  # actual analysis starts here
+START_DATE = '1960-01-01'  # go back far for yield curve, macro, valuation history
+ANALYSIS_START = '1960-01-01'  # actual analysis starts here
 END_DATE = datetime.today().strftime('%Y-%m-%d')
 OUTPUT_DIR = Path(__file__).parent
 MIN_HISTORY = 252  # minimum days before computing percentile rank
@@ -50,22 +50,58 @@ PRIMARY_HORIZON = '6M'  # primary crash definition: within 6 months
 # 1. DATA DOWNLOAD
 # ============================================================================
 
+CACHE_DIR = Path(__file__).parent / '.cache'
+CACHE_DIR.mkdir(exist_ok=True)
+
+
 def download_fred_csv(series_id, start_date=START_DATE):
-    """Download a single FRED series via direct CSV (no API key needed)."""
+    """Download a single FRED series via direct CSV (no API key needed).
+    Caches to disk; re-downloads if cache is older than 12 hours."""
+    cache_file = CACHE_DIR / f'fred_{series_id}.csv'
+    # Use cache if fresh (< 12 hours old)
+    if cache_file.exists():
+        age_hours = (datetime.now().timestamp() - cache_file.stat().st_mtime) / 3600
+        if age_hours < 12:
+            try:
+                s = pd.read_csv(cache_file, index_col=0, parse_dates=True).iloc[:, 0]
+                s = pd.to_numeric(s, errors='coerce')
+                if len(s) > 0:
+                    s.name = series_id
+                    return s
+            except Exception:
+                pass  # fall through to re-download
+
     url = f'https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start_date}'
-    try:
-        r = requests.get(url, timeout=30,
-                         headers={'User-Agent': 'Mozilla/5.0 (research)'})
-        r.raise_for_status()
-        if '<html' in r.text[:200].lower():
-            return pd.Series(dtype=float)  # got error page, not CSV
-        df = pd.read_csv(io.StringIO(r.text), index_col=0, parse_dates=True, na_values='.')
-        s = df.iloc[:, 0]
-        s = pd.to_numeric(s, errors='coerce')
-        s.index = pd.to_datetime(s.index)
-        s.name = series_id
-        return s
-    except Exception:
+    import time
+    for attempt in range(3):
+        try:
+            time.sleep(1.5 + attempt * 2)  # backoff: 1.5s, 3.5s, 5.5s
+            r = requests.get(url, timeout=30,
+                             headers={'User-Agent': 'Mozilla/5.0 (research)'})
+            r.raise_for_status()
+            if '<html' in r.text[:200].lower():
+                continue  # got error page, retry
+            df = pd.read_csv(io.StringIO(r.text), index_col=0, parse_dates=True, na_values='.')
+            s = df.iloc[:, 0]
+            s = pd.to_numeric(s, errors='coerce')
+            s.index = pd.to_datetime(s.index)
+            s.name = series_id
+            if len(s) > 0:
+                s.to_frame().to_csv(cache_file)
+                return s
+        except Exception:
+            pass
+    # All retries failed — try stale cache
+        # Try cache even if stale
+        if cache_file.exists():
+            try:
+                s = pd.read_csv(cache_file, index_col=0, parse_dates=True).iloc[:, 0]
+                s = pd.to_numeric(s, errors='coerce')
+                if len(s) > 0:
+                    s.name = series_id
+                    return s
+            except Exception:
+                pass
         return pd.Series(dtype=float)
 
 
@@ -218,6 +254,50 @@ def download_cftc_cot():
         return pd.DataFrame()
 
 
+def download_shiller_cape():
+    """Download Shiller CAPE (PE10) from Robert Shiller's website. Monthly, from 1881."""
+    try:
+        url = 'http://www.econ.yale.edu/~shiller/data/ie_data.xls'
+        r = requests.get(url, timeout=30,
+                         headers={'User-Agent': 'Mozilla/5.0 (research)'})
+        r.raise_for_status()
+        df = pd.read_excel(io.BytesIO(r.content), sheet_name='Data',
+                           skiprows=7, header=0)
+        # The 'Date' column is like 2024.01 (year.month as float)
+        date_col = df.columns[0]
+        cape_col = 'CAPE'  # column name for CAPE ratio
+        if cape_col not in df.columns:
+            # Try to find it — sometimes labeled 'Cyclically Adjusted P/E' or last column
+            for c in df.columns:
+                if 'cape' in str(c).lower() or 'p/e10' in str(c).lower() or 'pe10' in str(c).lower():
+                    cape_col = c
+                    break
+        df = df[[date_col, cape_col]].dropna()
+        # Convert float date to datetime
+        dates = []
+        for d in df[date_col]:
+            try:
+                year = int(d)
+                month = round((d - year) * 12) + 1
+                month = max(1, min(12, month))
+                dates.append(pd.Timestamp(year=year, month=month, day=1))
+            except (ValueError, TypeError):
+                dates.append(pd.NaT)
+        df.index = dates
+        cape = pd.to_numeric(df[cape_col], errors='coerce')
+        cape = cape[cape.index.notna()].sort_index()
+        cape = cape[~cape.index.duplicated(keep='last')]  # remove duplicate dates
+        cape.name = 'CAPE'
+        cape = cape[cape > 0]  # remove any zeros/negatives
+        print(f"  [OK] Shiller CAPE: {len(cape.dropna())} obs, "
+              f"range {cape.index[0].date()} to {cape.index[-1].date()}, "
+              f"latest={cape.dropna().iloc[-1]:.1f}")
+        return cape
+    except Exception as e:
+        print(f"  [FAIL] Shiller CAPE: {e}")
+        return pd.Series(dtype=float, name='CAPE')
+
+
 def download_all_data():
     """Master download function."""
     print("\n=== Downloading FRED data ===")
@@ -308,10 +388,13 @@ def download_all_data():
 
     # CBOE Put/Call Ratio: discontinued archives (stopped 2019), skipped
 
+    print("\n=== Downloading Shiller CAPE ===")
+    cape_series = download_shiller_cape()
+
     print("\n=== Downloading CFTC COT (S&P 500 spec positioning) ===")
     cot_df = download_cftc_cot()
 
-    return fred_df, yf_df, ebp_df, margin_debt, None, cot_df
+    return fred_df, yf_df, ebp_df, margin_debt, None, cot_df, cape_series
 
 
 # ============================================================================
@@ -354,6 +437,7 @@ PUBLICATION_LAG = {
     # 65 biz days — quarterly data with ~2.5 month lag
     'HH_EQUITY_ALLOC': 65,
     'BUFFETT_IND': 65,
+    'CAPE': 25,  # Shiller updates monthly, ~1 month lag
 }
 
 
@@ -385,7 +469,7 @@ def apply_publication_lags(indicators):
 
 
 def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
-                       put_call=None, cot_df=None):
+                       put_call=None, cot_df=None, cape_series=None):
     """Compute all derived indicators and return a unified daily DataFrame."""
     print("\n=== Computing derived indicators ===")
 
@@ -540,8 +624,8 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
     if sp500 is not None and sp500.notna().sum() > 252:
         sp_ret = np.log(sp500 / sp500.shift(1))
 
-        # --- Realized Volatility (22-day annualized) ---
-        rv_22 = sp_ret.rolling(22).std() * np.sqrt(252) * 100
+        # --- Realized Volatility (21-day annualized, Wilder standard) ---
+        rv_22 = sp_ret.rolling(21).std() * np.sqrt(252) * 100
         indicators['REALIZED_VOL'] = rv_22
         print("  [OK] Realized Volatility")
 
@@ -684,19 +768,18 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
             indicators['BUFFETT_IND'] = buffett
             print(f"  [OK] Buffett Indicator (market cap/GDP via {src})")
 
-    # --- FINRA Margin Debt scaled by GDP (higher = more speculation = more danger) ---
+    # --- Shiller CAPE (Cyclically Adjusted PE Ratio) ---
+    # The most widely-followed long-term valuation measure. Monthly, from 1881.
+    if cape_series is not None and len(cape_series.dropna()) > 0:
+        indicators['CAPE'] = to_daily(cape_series)
+        print(f"  [OK] Shiller CAPE (PE10): {len(cape_series.dropna())} monthly obs")
+
+    # --- FINRA Margin Debt (raw level in $B) ---
+    # Practitioners track raw margin debt levels; percentile rank handles normalization
     if margin_debt is not None and len(margin_debt.dropna()) > 0:
         md = to_daily(margin_debt)
-        # Scale by GDP to remove nominal economic growth
-        if 'GDP' in fred_df.columns:
-            gdp = to_daily(fred_df['GDP'])
-            # margin_debt in $M, GDP in $B → convert to same units ($B)
-            md_scaled = (md / 1000) / gdp * 100  # margin debt as % of GDP
-            indicators['MARGIN_DEBT'] = md_scaled
-            print("  [OK] Margin Debt / GDP")
-        else:
-            indicators['MARGIN_DEBT'] = md
-            print("  [OK] Margin Debt (raw, no GDP data)")
+        indicators['MARGIN_DEBT'] = md / 1000  # convert $M to $B for readability
+        print("  [OK] Margin Debt (raw level, $B)")
         # YoY growth of raw margin debt (standard practitioner measure)
         md_raw = margin_debt.dropna()
         md_yoy_raw = md_raw.pct_change(12) * 100  # 12 monthly obs
@@ -731,12 +814,10 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
     # High usage = excess liquidity parked at Fed; sudden drops = liquidity withdrawal = danger
     if 'REVERSE_REPO' in fred_df.columns:
         rrp = to_daily(fred_df['REVERSE_REPO'])
-        # YoY change: declining RRP = liquidity draining = tightening
-        rrp_yoy = rrp.pct_change(252) * 100
-        # Replace inf/-inf (from division by zero when RRP was 0 a year ago)
-        rrp_yoy = rrp_yoy.replace([np.inf, -np.inf], np.nan)
-        indicators['RRP_YOY_INV'] = rrp_yoy  # auto-oriented later
-        print("  [OK] Fed Reverse Repo YoY Change (inverted)")
+        # Use raw level — pct_change blows up when base ≈ 0 (pre-2021, post-2024)
+        # Percentile rank handles normalization; logistic regression handles direction
+        indicators['RRP_YOY_INV'] = rrp
+        print("  [OK] Fed Reverse Repo (raw level)")
 
     # --- Credit Spread Momentum (1-month change in HY OAS) ---
     if 'HY_OAS' in indicators.columns:
@@ -825,6 +906,7 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         'MARGIN_DEBT': 'MARGIN_DEBT', 'MARGIN_DEBT_YOY': 'MARGIN_DEBT',
         'PUT_CALL_INV': 'PUT_CALL', 'COT_LEV_NET_LONG': 'COT',
         'COT_AM_NET_LONG': 'COT', 'RRP_YOY_INV': 'REVERSE_REPO',
+        'CAPE': 'CAPE',
     }
 
     print(f"\n=== Total indicators: {len(indicators.columns)} ===")
@@ -1337,11 +1419,11 @@ def main():
     output_dir = Path(args.output_dir) if args.output_dir else OUTPUT_DIR
 
     # 1. Download all data
-    fred_df, yf_df, ebp_df, margin_debt, put_call, cot_df = download_all_data()
+    fred_df, yf_df, ebp_df, margin_debt, put_call, cot_df, cape_series = download_all_data()
 
     # 2. Compute all indicators
     indicators = compute_indicators(fred_df, yf_df, ebp_df, margin_debt,
-                                    put_call, cot_df)
+                                    put_call, cot_df, cape_series)
 
     # 3. Percentile rank (expanding window, no look-ahead)
     percentiles, _, miss_flags = normalize_indicators(indicators)

@@ -434,7 +434,7 @@
 
     <!-- Heatmap: realized drawdown + per-indicator crash probs -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Indicator Heatmap vs Realized Drawdown</div>
+      <div class="section-title" style="margin-bottom:12px">Indicator Percentile Ranks vs Realized Drawdown</div>
       <div id="heatmap-container" style="overflow-x:auto;"></div>
     </div>
 
@@ -732,63 +732,53 @@ function renderHeatmap(heatmap) {
   const container = document.getElementById('heatmap-container');
   const dates = heatmap.dates;
   const realized = heatmap.realized_dd || [];
+  const fwdReturns = heatmap.fwd_returns || {};
   const indicators = heatmap.indicators;
 
-  // Show year labels every ~2 years for readability
   const labelEvery = Math.max(1, Math.floor(dates.length / 25));
 
-  // Continuous color interpolation for crash prob (0-100%)
-  function probHeatColor(val) {
-    if (val === null || val === undefined) return 'none'; // transparent for null
-    // Bright green -> yellow -> orange -> red
-    const t = Math.min(val / 70, 1); // saturate at 70%
+  // Percentile rank color: green (low) -> yellow -> orange -> red (high)
+  function pctColor(val) {
+    if (val === null || val === undefined) return 'none';
+    const t = Math.min(val / 100, 1);
     if (t < 0.33) {
-      // green to yellow
       const s = t / 0.33;
-      const r = Math.round(34 + s * (230 - 34));
-      const g = Math.round(180 + s * (200 - 180));
-      const b = Math.round(34 + s * (0 - 34));
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(34+s*196)},${Math.round(180+s*20)},${Math.round(34-s*34)})`;
     } else if (t < 0.66) {
-      // yellow to orange
       const s = (t - 0.33) / 0.33;
-      const r = Math.round(230 + s * (240 - 230));
-      const g = Math.round(200 - s * (200 - 100));
-      const b = 0;
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(230+s*10)},${Math.round(200-s*100)},0)`;
     } else {
-      // orange to red
       const s = (t - 0.66) / 0.34;
-      const r = Math.round(240 + s * (255 - 240));
-      const g = Math.round(100 - s * 100);
-      const b = Math.round(s * 30);
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(240+s*15)},${Math.round(100-s*100)},${Math.round(s*30)})`;
     }
   }
 
-  // Color function for realized drawdown (negative %)
+  // Forward return color: red (negative) -> white (0) -> green (positive)
+  function retColor(val) {
+    if (val === null || val === undefined) return 'none';
+    if (val >= 0) {
+      const t = Math.min(val / 30, 1); // saturate at +30%
+      return `rgb(${Math.round(240-t*200)},${Math.round(240-t*40)},${Math.round(240-t*200)})`;
+    } else {
+      const t = Math.min(Math.abs(val) / 30, 1);
+      return `rgb(${Math.round(240-t*40)},${Math.round(240-t*200)},${Math.round(240-t*200)})`;
+    }
+  }
+
+  // Max drawdown color: green (small) -> red (large)
   function ddColor(val) {
     if (val === null || val === undefined) return 'none';
     const v = Math.abs(val);
-    const t = Math.min(v / 40, 1); // saturate at -40%
+    const t = Math.min(v / 40, 1);
     if (t < 0.25) {
       const s = t / 0.25;
-      const r = Math.round(34 + s * (230 - 34));
-      const g = Math.round(180 + s * (200 - 180));
-      const b = Math.round(34 - s * 34);
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(34+s*196)},${Math.round(180+s*20)},${Math.round(34-s*34)})`;
     } else if (t < 0.5) {
       const s = (t - 0.25) / 0.25;
-      const r = Math.round(230 + s * 10);
-      const g = Math.round(200 - s * 100);
-      const b = 0;
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(230+s*10)},${Math.round(200-s*100)},0)`;
     } else {
       const s = (t - 0.5) / 0.5;
-      const r = Math.round(240 + s * 15);
-      const g = Math.round(100 - s * 100);
-      const b = Math.round(s * 30);
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${Math.round(240+s*15)},${Math.round(100-s*100)},${Math.round(s*30)})`;
     }
   }
 
@@ -796,69 +786,89 @@ function renderHeatmap(heatmap) {
   const cellH = 14;
   const labelW = 180;
   const totalW = labelW + dates.length * cellW + 20;
-  const rowCount = indicators.length + 1; // +1 for realized DD row
-  const bottomH = 30; // space for year labels at bottom
-  const bodyH = rowCount * (cellH + 1) + 4;
-  const totalH = bodyH + bottomH + 50; // +50 for legend
 
-  const nullColor = '#1a1a2e'; // distinct dark purple-gray for no-data
+  // Count top rows: forward 3M return + max DD
+  const topRows = (fwdReturns['3M'] ? 1 : 0) + (realized.length > 0 ? 1 : 0);
+  const rowCount = topRows + indicators.length;
+  const bottomH = 30;
+  const bodyH = rowCount * (cellH + 1) + 10;
+  const totalH = bodyH + bottomH + 60;
+
+  const nullColor = '#1a1a2e';
 
   let svg = `<svg width="${totalW}" height="${totalH}" style="font-family:'Segoe UI',system-ui,sans-serif;">`;
-
   let y = 0;
 
-  // Row 1: Realized forward max drawdown
-  svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#fff" font-size="10" text-anchor="end" font-weight="600">Fwd 6M Max DD</text>`;
-  for (let i = 0; i < dates.length; i++) {
-    const val = realized[i];
-    const color = val === null || val === undefined ? nullColor : ddColor(val);
-    svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
-    svg += `<title>${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
-  }
-  y += cellH + 4; // extra gap after realized
-
-  // Separator line
-  svg += `<line x1="${labelW}" y1="${y - 2}" x2="${labelW + dates.length * cellW}" y2="${y - 2}" stroke="#444" stroke-width="1"/>`;
-
-  // Indicator rows
-  for (const ind of indicators) {
-    // Find first non-null index to show data availability
-    svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#c8d6e5" font-size="9" text-anchor="end">${ind.name}</text>`;
+  // --- Top section: Forward 3M S&P 500 return + Max DD ---
+  const fwd3m = fwdReturns['3M'];
+  if (fwd3m) {
+    svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#fff" font-size="10" text-anchor="end" font-weight="600">Fwd 3M Return</text>`;
     for (let i = 0; i < dates.length; i++) {
-      const val = ind.values[i];
-      const color = val === null || val === undefined ? nullColor : probHeatColor(val);
+      const val = fwd3m[i];
+      const color = val === null || val === undefined ? nullColor : retColor(val);
       svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
-      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
+      svg += `<title>${dates[i]}: ${val !== null && val !== undefined ? (val >= 0 ? '+' : '') + val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
     }
     y += cellH + 1;
   }
 
-  // Year labels at bottom (horizontal, readable)
+  // Forward max drawdown row
+  if (realized.length > 0) {
+    svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#fff" font-size="10" text-anchor="end" font-weight="600">Fwd 6M Max DD</text>`;
+    for (let i = 0; i < dates.length; i++) {
+      const val = realized[i];
+      const color = val === null || val === undefined ? nullColor : ddColor(val);
+      svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
+      svg += `<title>${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
+    }
+    y += cellH + 1;
+  }
+
+  y += 4;
+  svg += `<line x1="${labelW}" y1="${y - 2}" x2="${labelW + dates.length * cellW}" y2="${y - 2}" stroke="#444" stroke-width="1"/>`;
+
+  // --- Indicator percentile rows ---
+  for (const ind of indicators) {
+    svg += `<text x="${labelW - 6}" y="${y + cellH - 2}" fill="#c8d6e5" font-size="9" text-anchor="end">${ind.name}</text>`;
+    for (let i = 0; i < dates.length; i++) {
+      const val = ind.values[i];
+      const color = val === null || val === undefined ? nullColor : pctColor(val);
+      svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
+      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(0) + 'th pctile' : 'N/A'}</title></rect>`;
+    }
+    y += cellH + 1;
+  }
+
+  // Year labels at bottom
   const labelY = y + 14;
   for (let i = 0; i < dates.length; i += labelEvery) {
     const x = labelW + i * cellW + cellW / 2;
-    const yr = dates[i].substring(0, 4);
-    svg += `<text x="${x}" y="${labelY}" fill="#8a9ab5" font-size="11" text-anchor="middle" font-weight="500">${yr}</text>`;
-  }
-  // Tick marks
-  for (let i = 0; i < dates.length; i += labelEvery) {
-    const x = labelW + i * cellW + cellW / 2;
+    svg += `<text x="${x}" y="${labelY}" fill="#8a9ab5" font-size="11" text-anchor="middle" font-weight="500">${dates[i].substring(0, 4)}</text>`;
     svg += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 4}" stroke="#555" stroke-width="1"/>`;
   }
 
-  // Legend
+  // Legends
   const legendY = labelY + 18;
-  const legendColors = [
-    ['< 10%', probHeatColor(5)], ['10-20%', probHeatColor(15)], ['20-30%', probHeatColor(25)],
-    ['30-40%', probHeatColor(35)], ['40-50%', probHeatColor(45)], ['50%+', probHeatColor(60)],
-    ['No data', nullColor]
-  ];
-  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">P(crash):</text>`;
-  let lx = labelW + 60;
-  for (const [label, color] of legendColors) {
+  // Percentile legend
+  const pctLegend = [['< 20th', pctColor(10)], ['20-40th', pctColor(30)], ['40-60th', pctColor(50)],
+    ['60-80th', pctColor(70)], ['80-90th', pctColor(85)], ['90th+', pctColor(95)], ['No data', nullColor]];
+  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">Percentile:</text>`;
+  let lx = labelW + 65;
+  for (const [label, color] of pctLegend) {
     svg += `<rect x="${lx}" y="${legendY}" width="14" height="14" fill="${color}" rx="2" stroke="#333" stroke-width="0.5"/>`;
     svg += `<text x="${lx + 18}" y="${legendY + 11}" fill="#8a9ab5" font-size="9">${label}</text>`;
-    lx += 65;
+    lx += 62;
+  }
+  // Return legend
+  const retLegendY = legendY + 20;
+  const retLegend = [['< -20%', retColor(-25)], ['-10%', retColor(-10)], ['0%', retColor(0)],
+    ['+10%', retColor(10)], ['> +20%', retColor(25)]];
+  svg += `<text x="${labelW}" y="${retLegendY + 10}" fill="#8a9ab5" font-size="10">Fwd Return:</text>`;
+  lx = labelW + 65;
+  for (const [label, color] of retLegend) {
+    svg += `<rect x="${lx}" y="${retLegendY}" width="14" height="14" fill="${color}" rx="2" stroke="#333" stroke-width="0.5"/>`;
+    svg += `<text x="${lx + 18}" y="${retLegendY + 11}" fill="#8a9ab5" font-size="9">${label}</text>`;
+    lx += 62;
   }
 
   svg += '</svg>';

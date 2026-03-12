@@ -43,9 +43,9 @@ def generate_dashboard_data(data_dir=None):
                            'PHILLY_MFG_INV', 'UMICH_INV', 'M2_GROWTH_INV'],
         'Market Technicals': ['SP500_VS_200DMA_INV', 'DEATH_CROSS', 'RSI_14',
                               'MOMENTUM_12_1_INV', 'DRAWDOWN_1Y'],
-        'Valuation / Positioning': ['BUFFETT_IND', 'HH_EQUITY_ALLOC', 'MARGIN_DEBT',
-                                     'MARGIN_DEBT_YOY', 'COT_LEV_NET_LONG',
-                                     'COT_AM_NET_LONG'],
+        'Valuation / Positioning': ['CAPE', 'BUFFETT_IND', 'HH_EQUITY_ALLOC',
+                                     'MARGIN_DEBT', 'MARGIN_DEBT_YOY',
+                                     'COT_LEV_NET_LONG', 'COT_AM_NET_LONG'],
         'Cross-Asset': ['GOLD_SP_RATIO', 'CU_AU_RATIO_INV', 'DXY'],
         'Monetary Policy': ['FED_FUNDS', 'RRP_YOY_INV', 'SLOOS'],
     }
@@ -87,6 +87,7 @@ def generate_dashboard_data(data_dir=None):
         'DRAWDOWN_1Y': 'Trailing 1Y Drawdown',
         'BUFFETT_IND': 'Buffett Indicator',
         'HH_EQUITY_ALLOC': 'Household Equity Allocation',
+        'CAPE': 'Shiller CAPE (PE10)',
         'MARGIN_DEBT': 'FINRA Margin Debt',
         'MARGIN_DEBT_YOY': 'Margin Debt YoY Growth',
         'COT_LEV_NET_LONG': 'CFTC Leveraged Net Short',
@@ -95,7 +96,7 @@ def generate_dashboard_data(data_dir=None):
         'CU_AU_RATIO_INV': 'Copper / Gold Ratio',
         'DXY': 'US Dollar Index',
         'FED_FUNDS': 'Fed Funds Rate',
-        'RRP_YOY_INV': 'Fed Reverse Repo YoY',
+        'RRP_YOY_INV': 'Fed Reverse Repo (ON RRP)',
         'SLOOS': 'Bank Lending Standards',
     }
 
@@ -338,6 +339,13 @@ def generate_dashboard_data(data_dir=None):
             'thresholds': {'green': '< 100%', 'yellow': '120-150%', 'red': '> 150%'},
             'direction': 'Higher = more overvalued = danger',
         },
+        'CAPE': {
+            'what': 'The Shiller Cyclically Adjusted Price-to-Earnings ratio (CAPE or PE10). S&P 500 price divided by 10-year average of real (inflation-adjusted) earnings. The most widely-followed long-term valuation measure, with data back to 1881.',
+            'calc': 'CAPE = S&P 500 Real Price / (10-year moving average of Real Earnings). Both price and earnings are adjusted for CPI inflation. Published monthly by Robert Shiller.',
+            'source': 'Robert Shiller / Yale (http://www.econ.yale.edu/~shiller/data.htm)',
+            'thresholds': {'green': '< 20', 'yellow': '25-30', 'red': '> 30'},
+            'direction': 'Higher = more overvalued relative to long-run earnings = danger',
+        },
         'HH_EQUITY_ALLOC': {
             'what': 'Household equity allocation from the Fed\'s Flow of Funds (Z.1) report. Measures the share of household financial assets allocated to equities. High allocation = late-cycle euphoria.',
             'calc': 'Direct percentage from Fed Z.1 table. Represents corporate equities as a share of total household financial assets.',
@@ -346,10 +354,10 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = more crowded into stocks = danger',
         },
         'MARGIN_DEBT': {
-            'what': 'Total debit balances in customers\' securities margin accounts at FINRA member broker-dealers, scaled by GDP. Measures the total amount of borrowed money used to buy stocks relative to the size of the economy.',
-            'calc': 'Margin Debt / GDP = (FINRA Debit Balances in $M / 1000) / (GDP in $B) * 100. Expressed as a percentage.',
-            'source': 'FINRA margin statistics (monthly), GDP (FRED: GDP)',
-            'thresholds': {'green': '< 2.0%', 'yellow': '2.5-3.5%', 'red': '> 3.5%'},
+            'what': 'Total debit balances in customers\' securities margin accounts at FINRA member broker-dealers. Raw dollar level — the standard practitioner measure of aggregate margin leverage.',
+            'calc': 'Raw FINRA debit balances converted from $M to $B. Percentile rank handles normalization over time.',
+            'source': 'FINRA margin statistics (monthly)',
+            'thresholds': {'green': 'Below historical median', 'yellow': '75th-90th percentile', 'red': 'Above 90th percentile'},
             'direction': 'Higher = more speculative leverage = danger',
         },
         'MARGIN_DEBT_YOY': {
@@ -402,11 +410,11 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = tighter policy = danger',
         },
         'RRP_YOY_INV': {
-            'what': 'Year-over-year change in the Fed\'s Overnight Reverse Repo Facility (ON RRP) usage. The ON RRP absorbs excess liquidity. Declining usage = liquidity draining from the system.',
-            'calc': 'YoY% = (ON_RRP(t) / ON_RRP(t-252) - 1) * 100. Uses 252 business days for daily data.',
+            'what': 'Daily outstanding balance in the Fed\'s Overnight Reverse Repo Facility (ON RRP). The ON RRP absorbs excess liquidity — high levels mean ample reserves; low levels mean tighter conditions.',
+            'calc': 'Raw ON RRP balance in $B. Percentile rank normalizes across regimes. (YoY% change abandoned because it produces infinities when base was near zero pre-2021.)',
             'source': 'NY Fed via FRED: RRPONTSYD',
-            'thresholds': {'green': 'Stable or rising', 'yellow': 'Declining', 'red': 'Rapid drain (< -50%)'},
-            'direction': 'Declining = liquidity draining = danger',
+            'thresholds': {'green': 'High (ample liquidity)', 'yellow': 'Declining', 'red': 'Near zero (drained)'},
+            'direction': 'Lower = less excess liquidity = tighter conditions',
         },
         'SLOOS': {
             'what': 'The Federal Reserve\'s Senior Loan Officer Opinion Survey on bank lending practices. Net percentage of banks tightening standards on C&I loans. Sustained tightening has preceded every recession since 1990.',
@@ -433,7 +441,7 @@ def generate_dashboard_data(data_dir=None):
         'UMICH_INV': 'Monthly', 'M2_GROWTH_INV': 'Monthly',
         'SP500_VS_200DMA_INV': 'Daily', 'DEATH_CROSS': 'Daily',
         'RSI_14': 'Daily', 'MOMENTUM_12_1_INV': 'Daily', 'DRAWDOWN_1Y': 'Daily',
-        'BUFFETT_IND': 'Quarterly', 'HH_EQUITY_ALLOC': 'Quarterly',
+        'CAPE': 'Monthly', 'BUFFETT_IND': 'Quarterly', 'HH_EQUITY_ALLOC': 'Quarterly',
         'MARGIN_DEBT': 'Monthly', 'MARGIN_DEBT_YOY': 'Monthly',
         'COT_LEV_NET_LONG': 'Weekly', 'COT_AM_NET_LONG': 'Weekly',
         'GOLD_SP_RATIO': 'Daily', 'CU_AU_RATIO_INV': 'Daily',
@@ -542,20 +550,24 @@ def generate_dashboard_data(data_dir=None):
         if probs:
             category_scores[cat_name] = round(float(np.percentile(probs, 90)), 1)
 
-    # --- Heatmap data: per-indicator crash prob time series + realized drawdown ---
-    # Sample monthly to keep JSON size manageable
-    prob_cols = [f'PROB_{ind_name}' for cat_inds in CATEGORIES.values()
-                 for ind_name in cat_inds if f'PROB_{ind_name}' in df.columns]
-    # Also get the forward max drawdown (realized outcome)
-    fwd_dd_col = 'FWD_MAX_DD_6M'
-
+    # --- Heatmap data: percentile ranks + forward returns + realized drawdown ---
     # Monthly sampling (first business day of each month)
     monthly_idx = df.resample('MS').first().index
     monthly_idx = monthly_idx[monthly_idx.isin(df.index)]
 
     heatmap_dates = [d.strftime('%Y-%m-%d') for d in monthly_idx]
 
-    # Realized drawdown series
+    # Forward return series (1M, 3M, 6M, 12M)
+    fwd_return_series = {}
+    for label in ['1M', '3M', '6M', '12M']:
+        col = f'FWD_{label}'
+        if col in df.columns:
+            series = df[col].reindex(monthly_idx)
+            fwd_return_series[label] = [round(float(v), 2) if not pd.isna(v) else None
+                                        for v in series.values]
+
+    # Forward max drawdown (6M)
+    fwd_dd_col = 'FWD_MAX_DD_6M'
     if fwd_dd_col in df.columns:
         fwd_dd_monthly = df[fwd_dd_col].reindex(monthly_idx)
         heatmap_realized = [round(float(v), 2) if not pd.isna(v) else None
@@ -563,14 +575,14 @@ def generate_dashboard_data(data_dir=None):
     else:
         heatmap_realized = []
 
-    # Per-indicator crash prob time series
+    # Per-indicator percentile rank time series
     heatmap_indicators = []
     for cat_name, cat_inds in CATEGORIES.items():
         for ind_name in cat_inds:
-            prob_col = f'PROB_{ind_name}'
-            if prob_col not in df.columns:
+            pct_col = f'PCT_{ind_name}'
+            if pct_col not in df.columns:
                 continue
-            series = df[prob_col].reindex(monthly_idx)
+            series = df[pct_col].reindex(monthly_idx)
             values = [round(float(v) * 100, 1) if not pd.isna(v) else None
                       for v in series.values]
             # Only include if has some data
@@ -599,6 +611,7 @@ def generate_dashboard_data(data_dir=None):
         'heatmap': {
             'dates': heatmap_dates,
             'realized_dd': heatmap_realized,
+            'fwd_returns': fwd_return_series,
             'indicators': heatmap_indicators,
         },
     }
