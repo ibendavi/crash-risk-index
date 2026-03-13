@@ -1134,19 +1134,7 @@ def normalize_indicators(indicators):
                               or 0) — for ML model features
         miss_flags: DataFrame of MISS_{col} flags (1 = originally missing)
     """
-    print("\n=== Normalizing indicators to 0-100 danger scores (full-sample) ===")
-
-    # Indicators where LOWER raw value = MORE danger.
-    # For these, we flip percentile: 100 - rank, so that danger always = high percentile.
-    INVERT_COLS = {
-        'YC_10Y2Y_INV', 'YC_10Y3M_INV',
-        'DGORDER_YOY_INV', 'INDPRO_YOY_INV', 'PERMIT_YOY_INV',
-        'UMICH_INV', 'PHILLY_MFG_INV',
-        'VRP_INV', 'VIX_RV_SPREAD_INV',
-        'SP500_VS_200DMA_INV', 'MOMENTUM_12_1_INV', 'DRAWDOWN_1Y',
-        'CU_AU_RATIO_INV', 'M2_GROWTH_INV', 'NFP_MOM_INV',
-        'PUT_CALL_INV', 'COT_LEV_NET_LONG', 'RRP_YOY_INV',
-    }
+    print("\n=== Normalizing indicators to 0-100 percentile ranks (full-sample) ===")
 
     danger_scores = pd.DataFrame(index=indicators.index)
     danger_scores_filled = pd.DataFrame(index=indicators.index)
@@ -1162,12 +1150,8 @@ def normalize_indicators(indicators):
             print(f"  [SKIP] {col}: only {len(series)} obs (need {MIN_HISTORY})")
             continue
 
-        # Full-sample percentile rank
+        # Full-sample percentile rank (raw — direction set later by crash correlation)
         rank = series.rank(pct=True) * 100
-
-        # Flip inverted indicators so high percentile = more danger
-        if col in INVERT_COLS:
-            rank = 100 - rank
 
         ds = rank.reindex(indicators.index)
 
@@ -1625,8 +1609,8 @@ def main():
     indicators = compute_indicators(fred_df, yf_df, ebp_df, margin_debt,
                                     put_call, cot_df, cape_series, insider_selling)
 
-    # 3. Percentile rank (expanding window, no look-ahead)
-    percentiles, _, miss_flags = normalize_indicators(indicators)
+    # 3. Raw percentile ranks (direction not yet set)
+    raw_pcts, _, miss_flags = normalize_indicators(indicators)
 
     # 4. Get S&P 500 (for forward returns)
     sp500 = None
@@ -1635,14 +1619,8 @@ def main():
     elif 'SP500_FRED' in fred_df.columns:
         sp500 = fred_df['SP500_FRED']
 
-    # 5. Save dataset (indicators + percentile ranks)
+    # 5. Compute forward returns & crash binary
     dataset = indicators.copy()
-
-    for col in percentiles.columns:
-        dataset[f'PCT_{col}'] = percentiles[col]
-
-    for col in miss_flags.columns:
-        dataset[col] = miss_flags[col]
 
     # Forward returns for heatmap context
     if sp500 is not None:
@@ -1653,6 +1631,48 @@ def main():
         # Forward max drawdown (6M)
         fwd_dd = compute_forward_max_drawdown(sp500, HORIZONS['6M'], dataset.index)
         dataset['FWD_MAX_DD_6M'] = fwd_dd
+
+    # 6. Empirical orientation: flip indicators whose percentile rank is
+    #    negatively correlated with 6M crash binary, so that for ALL
+    #    indicators: high percentile = more danger.
+    crash_corrs = {}
+    percentiles = raw_pcts.copy()
+    if 'FWD_MAX_DD_6M' in dataset.columns:
+        crash_binary = (dataset['FWD_MAX_DD_6M'] < -PRIMARY_THRESHOLD).astype(float)
+        print("\n=== Empirical orientation (corr with 6M crash DD>10%) ===")
+        for col in raw_pcts.columns:
+            r = raw_pcts[col].corr(crash_binary)
+            if np.isnan(r):
+                r = 0.0
+            crash_corrs[col] = r
+            if r < 0:
+                percentiles[col] = 100 - raw_pcts[col]
+                print(f"  [FLIP] {col:30s}  r={r:+.4f} -> flipped")
+            else:
+                print(f"  [OK]   {col:30s}  r={r:+.4f}")
+
+        # Correlation-weighted aggregate (using |r| as weights)
+        weights = {col: abs(r) for col, r in crash_corrs.items()}
+        total_w = sum(weights.values())
+        if total_w > 0:
+            weighted_pct = sum(
+                weights[col] * percentiles[col].fillna(50)
+                for col in percentiles.columns
+            ) / total_w
+            dataset['WEIGHTED_AGG'] = weighted_pct
+            print(f"\n  Correlation-weighted aggregate (latest): "
+                  f"{weighted_pct.dropna().iloc[-1]:.1f}")
+    else:
+        print("\n  [WARN] No forward returns — skipping empirical orientation")
+
+    # Save crash correlations as dataset attribute for downstream use
+    dataset.attrs['crash_corrs'] = crash_corrs
+
+    for col in percentiles.columns:
+        dataset[f'PCT_{col}'] = percentiles[col]
+
+    for col in miss_flags.columns:
+        dataset[col] = miss_flags[col]
 
     csv_path = output_dir / 'crash_index_dataset.csv'
     dataset.to_csv(csv_path, float_format='%.4f')
@@ -1720,6 +1740,9 @@ def main():
                 src = cache_name.replace('.pkl', '')
                 if src not in [s.lower().replace('_', '') for s in build_meta['sources_failed']]:
                     build_meta['sources_stale_cache'].append(src)
+
+    # Save crash correlations for dashboard
+    build_meta['crash_corrs'] = {k: round(v, 4) for k, v in crash_corrs.items()}
 
     meta_path = output_dir / 'build_metadata.json'
     with open(meta_path, 'w') as f:

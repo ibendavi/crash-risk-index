@@ -28,6 +28,16 @@ def generate_dashboard_data(data_dir=None):
     latest = df.iloc[-1]
     latest_date = df.index[-1].strftime('%Y-%m-%d')
 
+    # Read build_metadata.json early (needed for crash correlations)
+    build_metadata = None
+    meta_path = data_dir / 'build_metadata.json'
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                build_metadata = json.load(f)
+        except Exception:
+            pass
+
     # --- Indicator metadata ---
     CATEGORIES = {
         'Volatility': ['VIX', 'VVIX', 'SKEW', 'REALIZED_VOL', 'VRP_INV', 'VIX_RV_SPREAD_INV'],
@@ -505,30 +515,62 @@ def generate_dashboard_data(data_dir=None):
                 'direction': desc.get('direction', ''),
             })
 
-    # Sort indicators by absolute crash correlation (most predictive first)
-    indicators.sort(key=lambda x: abs(x.get('crash_corr', 0)), reverse=True)
+    # Sort indicators by correlation (highest positive r first = most predictive of crashes)
+    indicators.sort(key=lambda x: x.get('crash_corr', 0), reverse=True)
 
     # --- Aggregate percentile stats across indicators ---
     pct_cols = [c for c in df.columns if c.startswith('PCT_')]
-    current_pcts = [float(latest[c]) for c in pct_cols if not pd.isna(latest.get(c))]
-    if current_pcts:
-        pct_arr = np.array(current_pcts)
-        # Primary gauge: % of indicators above 80th percentile
-        # (best all-round predictor of forward drawdowns across thresholds)
-        pct_above_80 = round(float((pct_arr > 80).sum() / len(pct_arr) * 100), 1)
+
+    # Read crash correlations from build metadata (computed by build_crash_index.py)
+    crash_corrs = {}
+    if build_metadata and 'crash_corrs' in build_metadata:
+        crash_corrs = build_metadata['crash_corrs']
+
+    # Correlation-weighted aggregate: sum(|r_i| * pct_i) / sum(|r_i|)
+    # Percentiles are already flipped (by build_crash_index.py) so high = danger for all
+    current_pcts = {}
+    for c in pct_cols:
+        val = latest.get(c)
+        if not pd.isna(val):
+            ind_name = c.replace('PCT_', '')
+            current_pcts[ind_name] = float(val)
+
+    if current_pcts and crash_corrs:
+        weighted_sum = 0.0
+        weight_sum = 0.0
+        for ind_name, pct_val in current_pcts.items():
+            w = abs(crash_corrs.get(ind_name, 0))
+            weighted_sum += w * pct_val
+            weight_sum += w
+        weighted_agg = round(weighted_sum / weight_sum, 1) if weight_sum > 0 else 50.0
+    else:
+        weighted_agg = round(float(np.median(list(current_pcts.values()))), 1) if current_pcts else 50.0
+
+    pct_arr = np.array(list(current_pcts.values())) if current_pcts else np.array([])
+    if len(pct_arr) > 0:
         crash_prob_median = round(float(np.median(pct_arr)), 1)
         crash_prob_mean = round(float(np.mean(pct_arr)), 1)
         crash_prob_p75 = round(float(np.percentile(pct_arr, 75)), 1)
         crash_prob_p90 = round(float(np.percentile(pct_arr, 90)), 1)
     else:
-        pct_above_80 = crash_prob_median = crash_prob_mean = 0
-        crash_prob_p75 = crash_prob_p90 = 0
+        crash_prob_median = crash_prob_mean = crash_prob_p75 = crash_prob_p90 = 0
     n_models = len(current_pcts)
 
-    # --- History: % of indicators above 80th pctl + median pctl ---
+    # --- History: correlation-weighted aggregate over time ---
     pct_df = df[pct_cols].dropna(how='all')
-    pct_above_80_series = ((pct_df > 80).sum(axis=1) / pct_df.notna().sum(axis=1) * 100).dropna()
-    median_pct_series = pct_df.median(axis=1).dropna()
+
+    # Build weight vector aligned to pct_cols
+    weights = np.array([abs(crash_corrs.get(c.replace('PCT_', ''), 0)) for c in pct_df.columns])
+    if weights.sum() > 0:
+        # For each date: weighted average of available percentiles (NaN-aware)
+        def _weighted_agg_row(row):
+            mask = row.notna()
+            if mask.sum() == 0:
+                return np.nan
+            return (row[mask].values * weights[mask.values]).sum() / weights[mask.values].sum()
+        weighted_agg_series = pct_df.apply(_weighted_agg_row, axis=1).dropna()
+    else:
+        weighted_agg_series = pct_df.median(axis=1).dropna()
 
     def _build_history(series):
         """Downsample: daily for last 5 years, monthly before that."""
@@ -546,7 +588,8 @@ def generate_dashboard_data(data_dir=None):
         return [{'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
                 for d, v in zip(idx, vals)]
 
-    crash_prob_history = _build_history(pct_above_80_series)
+    crash_prob_history = _build_history(weighted_agg_series)
+    median_pct_series = pct_df.median(axis=1).dropna()
     median_history = _build_history(median_pct_series)
 
     # --- Category scores (median percentile within each category) ---
@@ -616,30 +659,23 @@ def generate_dashboard_data(data_dir=None):
         'stale_sources': [],
     }
 
-    # Read build_metadata.json if available
-    build_metadata = None
-    meta_path = data_dir / 'build_metadata.json'
-    if meta_path.exists():
-        try:
-            with open(meta_path) as f:
-                build_metadata = json.load(f)
-            data_freshness['stale_sources'] = (
-                build_metadata.get('sources_stale_cache', []) +
-                build_metadata.get('sources_failed', [])
-            )
-        except Exception:
-            pass
+    # Use build_metadata (read earlier) for stale source info
+    if build_metadata:
+        data_freshness['stale_sources'] = (
+            build_metadata.get('sources_stale_cache', []) +
+            build_metadata.get('sources_failed', [])
+        )
 
     # --- Assemble output ---
     dashboard = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'latest_date': latest_date,
-        'pct_above_80': pct_above_80,          # headline gauge
-        'crash_prob_median': crash_prob_median,  # secondary
+        'weighted_agg': weighted_agg,             # headline gauge (corr-weighted)
+        'crash_prob_median': crash_prob_median,    # secondary
         'crash_prob_mean': crash_prob_mean,
         'crash_prob_p75': crash_prob_p75,
         'crash_prob_p90': crash_prob_p90,
-        'primary_definition': '% of indicators above 80th percentile',
+        'primary_definition': 'Correlation-weighted aggregate percentile',
         'n_models': n_models,
         'category_scores': category_scores,
         'indicators': indicators,
@@ -660,7 +696,7 @@ def generate_dashboard_data(data_dir=None):
     with open(out_path, 'w') as f:
         json.dump(dashboard, f, indent=2)
     print(f"Dashboard data saved to {out_path}")
-    print(f"  Pct above 80th:  {pct_above_80:.1f}%")
+    print(f"  Weighted agg:    {weighted_agg:.1f}%")
     print(f"  Median pctl:     {crash_prob_median:.1f}%")
     print(f"  P75 / P90:       {crash_prob_p75:.1f}% / {crash_prob_p90:.1f}%")
     print(f"  Indicators: {len(indicators)}")

@@ -393,7 +393,7 @@
         </svg>
         <div class="gauge-label">
           <div id="gauge-value" class="gauge-value">--</div>
-          <div class="gauge-text">% INDICATORS &gt; 80th PCTL</div>
+          <div class="gauge-text">CORR-WEIGHTED STRESS</div>
           <div id="gauge-status" class="gauge-status">--</div>
         </div>
       </div>
@@ -443,7 +443,7 @@
 
     <!-- Historical chart -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Stress History: % of Indicators Above 80th Percentile</div>
+      <div class="section-title" style="margin-bottom:12px">Stress History: Correlation-Weighted Aggregate</div>
       <div class="chart-container">
         <canvas id="history-chart"></canvas>
       </div>
@@ -705,7 +705,7 @@ function renderChart(history) {
           mode: 'index',
           intersect: false,
           callbacks: {
-            label: (ctx) => ctx.datasetIndex === 0 ? `% above 80th: ${ctx.parsed.y.toFixed(1)}%` : '',
+            label: (ctx) => ctx.datasetIndex === 0 ? `Stress: ${ctx.parsed.y.toFixed(1)}%` : '',
             title: (items) => items[0]?.label || '',
           },
           filter: (item) => item.datasetIndex === 0,
@@ -957,8 +957,8 @@ async function init() {
     document.getElementById('n-models').textContent = data.n_models;
 
     // Probabilities
-    // Headline gauge: % of indicators above 80th percentile
-    const headline = data.pct_above_80 !== undefined ? data.pct_above_80 : data.crash_prob_p90;
+    // Headline gauge: correlation-weighted aggregate percentile
+    const headline = data.weighted_agg !== undefined ? data.weighted_agg : data.crash_prob_median;
     setGauge(headline);
 
     const medCls = probClass(data.crash_prob_median);
