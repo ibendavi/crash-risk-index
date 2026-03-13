@@ -291,6 +291,75 @@ def download_cftc_cot():
         return pd.DataFrame()
 
 
+def download_insider_selling():
+    """Download aggregate insider sell/buy ratio from SEC EDGAR.
+    Uses the EDGAR full-text search API to count Form 4 transactions
+    with 'sale' vs 'purchase' keywords, aggregated monthly.
+    Falls back to a simple heuristic from the SEC RSS feed.
+    Returns a monthly Series of sell/buy ratio (higher = more selling = danger)."""
+    try:
+        # Use OpenInsider screener for S&P 500 insider transactions
+        # Returns last ~2 years of daily insider transactions
+        url = 'http://openinsider.com/screener?s=&o=&pl=&ph=&ll=&lh=&fd=730&fdr=&td=0&tdr=&feession=&cession=&sidTicker=&tidTicker=&tiession=&sawession=&exactTicker=0&q=&iession=&xession=&vession=&count=5000&action=getdata'
+        r = requests.get(url, timeout=60,
+                         headers={'User-Agent': 'Mozilla/5.0 (research)'})
+        r.raise_for_status()
+
+        # Parse HTML table
+        dfs = pd.read_html(io.StringIO(r.text))
+        if not dfs:
+            raise ValueError("No tables found in OpenInsider response")
+
+        # Find the main transaction table (largest one)
+        df = max(dfs, key=len)
+
+        # Look for transaction type column
+        type_col = None
+        for c in df.columns:
+            if 'Transaction' in str(c) or 'Type' in str(c):
+                type_col = c
+                break
+        if type_col is None:
+            # Try column by position — typically col 7 or 8
+            for i, c in enumerate(df.columns):
+                sample = df[c].dropna().astype(str).head(20)
+                if sample.str.contains('Sale|Purchase|S -|P -', case=False).any():
+                    type_col = c
+                    break
+
+        date_col = None
+        for c in df.columns:
+            if 'Filing' in str(c) or 'Date' in str(c):
+                date_col = c
+                break
+        if date_col is None:
+            date_col = df.columns[1]  # usually second column
+
+        if type_col is None:
+            raise ValueError("Could not identify transaction type column")
+
+        df['date'] = pd.to_datetime(df[date_col], errors='coerce')
+        df = df.dropna(subset=['date'])
+        df['is_sale'] = df[type_col].astype(str).str.contains('S -|Sale', case=False, na=False).astype(int)
+        df['is_buy'] = df[type_col].astype(str).str.contains('P -|Purchase', case=False, na=False).astype(int)
+
+        # Aggregate monthly: sell/buy ratio
+        df = df.set_index('date')
+        monthly = df.resample('MS').agg({'is_sale': 'sum', 'is_buy': 'sum'})
+        monthly = monthly[(monthly['is_sale'] + monthly['is_buy']) > 10]  # need min transactions
+        # Sell/Buy ratio: higher = more insider selling relative to buying
+        monthly['INSIDER_SELL_BUY'] = monthly['is_sale'] / monthly['is_buy'].clip(lower=1)
+
+        result = monthly['INSIDER_SELL_BUY']
+        result.name = 'INSIDER_SELL_BUY'
+        print(f"  [OK] Insider Sell/Buy Ratio: {len(result)} monthly obs, "
+              f"last={result.index[-1].date()}, latest={result.iloc[-1]:.2f}")
+        return result
+    except Exception as e:
+        print(f"  [FAIL] Insider Selling: {e}")
+        return pd.Series(dtype=float, name='INSIDER_SELL_BUY')
+
+
 def download_shiller_cape():
     """Download Shiller CAPE (PE10) from Robert Shiller's website. Monthly, from 1881."""
     try:
@@ -370,6 +439,7 @@ def download_all_data():
         'INDPRO': 'INDPRO',
         'PERMIT': 'PERMIT',
         'UMICH': 'UMCSENT',
+        # ISM Manufacturing PMI: removed (NAPM no longer on FRED; ISM blocks redistribution)
         # Monetary
         'M2': 'M2SL',
         'FEDFUNDS': 'FEDFUNDS',
@@ -447,7 +517,13 @@ def download_all_data():
     if cot_df is None:
         cot_df = pd.DataFrame()
 
-    return fred_df, yf_df, ebp_df, margin_debt, None, cot_df, cape_series
+    print("\n=== Downloading Insider Selling Data ===")
+    insider_selling = retry_with_cache('INSIDER_SELLING', download_insider_selling,
+                                        CACHE_DIR / 'insider_selling.pkl')
+    if insider_selling is None:
+        insider_selling = pd.Series(dtype=float, name='INSIDER_SELL_BUY')
+
+    return fred_df, yf_df, ebp_df, margin_debt, None, cot_df, cape_series, insider_selling
 
 
 # ============================================================================
@@ -491,6 +567,7 @@ PUBLICATION_LAG = {
     'HH_EQUITY_ALLOC': 65,
     'BUFFETT_IND': 65,
     'CAPE': 25,  # Shiller updates monthly, ~1 month lag
+    'INSIDER_SELL_BUY': 5,  # Form 4 filed within 2 biz days; aggregate with ~1 week lag
 }
 
 
@@ -522,7 +599,8 @@ def apply_publication_lags(indicators):
 
 
 def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
-                       put_call=None, cot_df=None, cape_series=None):
+                       put_call=None, cot_df=None, cape_series=None,
+                       insider_selling=None):
     """Compute all derived indicators and return a unified daily DataFrame."""
     print("\n=== Computing derived indicators ===")
 
@@ -662,6 +740,8 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
     # Philly Fed Manufacturing (INVERTED: lower = more danger)
     if 'PHILLY_MFG' in fred_df.columns:
         indicators['PHILLY_MFG_INV'] = to_daily(fred_df['PHILLY_MFG'])
+
+    # ISM Manufacturing PMI: removed (NAPM no longer on FRED)
 
     # ------------------------------------------------------------------
     # C. COMPUTED INDICATORS FROM PRICE DATA
@@ -823,39 +903,14 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
             indicators['BUFFETT_IND'] = buffett.reindex(idx)
             print(f"  [OK] Buffett Indicator (market cap/GDP % via {src})")
 
-    # --- Excess CAPE Yield (ECY) ---
-    # Shiller's own improvement: ECY = (1/CAPE)*100 - real 10Y yield
-    # Accounts for interest rate regime; more meaningful than raw CAPE
-    # High ECY = stocks cheap vs bonds (bullish); low ECY = stocks expensive (danger)
+    # --- Shiller CAPE (Cyclically Adjusted PE) ---
+    # Practitioner standard: raw CAPE ratio (higher = more expensive = more danger)
+    # This is what Reddit, FinTwit, and currentmarketvaluation.com display
     if cape_series is not None and len(cape_series.dropna()) > 0:
         cape_daily = to_daily(cape_series)
-        earnings_yield = (1.0 / cape_daily) * 100  # CAPE earnings yield in %
-
-        # Real 10Y yield: prefer TIPS (DFII10), else nominal 10Y - CPI YoY
-        real_10y = None
-        if 'DFII10' in fred_df.columns and fred_df['DFII10'].dropna().shape[0] > 100:
-            real_10y = to_daily(fred_df['DFII10'])
-            print("  [OK] Real 10Y yield from TIPS (DFII10)")
-        elif 'DGS10' in fred_df.columns and 'CPIAUCSL' in fred_df.columns:
-            nom_10y = to_daily(fred_df['DGS10'])
-            cpi_raw = fred_df['CPIAUCSL'].dropna()
-            cpi_yoy = (cpi_raw / cpi_raw.shift(12) - 1) * 100  # 12 monthly obs
-            cpi_yoy_daily = to_daily(cpi_yoy)
-            real_10y = nom_10y - cpi_yoy_daily
-            print("  [OK] Real 10Y yield from nominal 10Y - CPI YoY")
-
-        if real_10y is not None:
-            ecy = earnings_yield - real_10y
-            # NOTE: Higher ECY = stocks cheap vs bonds = LESS danger
-            # We need to invert so higher = more danger for the model
-            # But the logistic regression learns direction automatically from
-            # percentile ranks, so we store the inverted ECY (lower ECY = more danger)
-            indicators['CAPE'] = -ecy  # inverted: low ECY (expensive) = high value = danger
-            print(f"  [OK] Excess CAPE Yield (inverted): {len(cape_series.dropna())} monthly obs")
-        else:
-            # Fallback: raw CAPE (higher = more danger)
-            indicators['CAPE'] = cape_daily
-            print(f"  [OK] Shiller CAPE (raw, no real yield for ECY): {len(cape_series.dropna())} monthly obs")
+        indicators['CAPE'] = cape_daily  # raw CAPE: higher = more expensive = danger
+        print(f"  [OK] Shiller CAPE (raw): {len(cape_series.dropna())} monthly obs, "
+              f"last={cape_series.dropna().iloc[-1]:.1f}")
 
     # --- FINRA Margin Debt as % of M2 Money Supply ---
     # Practitioner standard: margin debt / M2 * 100
@@ -937,6 +992,11 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         indicators['FFR_10Y_INV'] = ffr_10y
         print("  [OK] Fed Funds - 10Y Spread")
 
+    # --- Insider Sell/Buy Ratio (higher = more insider selling = danger) ---
+    if insider_selling is not None and len(insider_selling.dropna()) > 0:
+        indicators['INSIDER_SELL_BUY'] = to_daily(insider_selling)
+        print("  [OK] Insider Sell/Buy Ratio")
+
     # ---- Apply publication-lag shifts to avoid look-ahead bias ----
     indicators = apply_publication_lags(indicators)
 
@@ -1006,6 +1066,7 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         'PUT_CALL_INV': 'PUT_CALL', 'COT_LEV_NET_LONG': 'COT',
         'COT_AM_NET_LONG': 'COT', 'RRP_YOY_INV': 'REVERSE_REPO',
         'CAPE': 'CAPE',
+        'INSIDER_SELL_BUY': 'INSIDER_SELL_BUY',
     }
 
     print(f"\n=== Total indicators: {len(indicators.columns)} ===")
@@ -1053,6 +1114,18 @@ def normalize_indicators(indicators):
     """
     print("\n=== Normalizing indicators to 0-100 danger scores (full-sample) ===")
 
+    # Indicators where LOWER raw value = MORE danger.
+    # For these, we flip percentile: 100 - rank, so that danger always = high percentile.
+    INVERT_COLS = {
+        'YC_10Y2Y_INV', 'YC_10Y3M_INV',
+        'DGORDER_YOY_INV', 'INDPRO_YOY_INV', 'PERMIT_YOY_INV',
+        'UMICH_INV', 'PHILLY_MFG_INV',
+        'VRP_INV', 'VIX_RV_SPREAD_INV',
+        'SP500_VS_200DMA_INV', 'MOMENTUM_12_1_INV', 'DRAWDOWN_1Y',
+        'CU_AU_RATIO_INV', 'M2_GROWTH_INV', 'NFP_MOM_INV',
+        'PUT_CALL_INV', 'COT_LEV_NET_LONG', 'RRP_YOY_INV',
+    }
+
     danger_scores = pd.DataFrame(index=indicators.index)
     danger_scores_filled = pd.DataFrame(index=indicators.index)
     miss_flags = pd.DataFrame(index=indicators.index)
@@ -1069,6 +1142,11 @@ def normalize_indicators(indicators):
 
         # Full-sample percentile rank
         rank = series.rank(pct=True) * 100
+
+        # Flip inverted indicators so high percentile = more danger
+        if col in INVERT_COLS:
+            rank = 100 - rank
+
         ds = rank.reindex(indicators.index)
 
         # Keep NaN version for composite (NaN-aware averaging)
@@ -1519,11 +1597,11 @@ def main():
     output_dir = Path(args.output_dir) if args.output_dir else OUTPUT_DIR
 
     # 1. Download all data
-    fred_df, yf_df, ebp_df, margin_debt, put_call, cot_df, cape_series = download_all_data()
+    fred_df, yf_df, ebp_df, margin_debt, put_call, cot_df, cape_series, insider_selling = download_all_data()
 
     # 2. Compute all indicators
     indicators = compute_indicators(fred_df, yf_df, ebp_df, margin_debt,
-                                    put_call, cot_df, cape_series)
+                                    put_call, cot_df, cape_series, insider_selling)
 
     # 3. Percentile rank (expanding window, no look-ahead)
     percentiles, _, miss_flags = normalize_indicators(indicators)

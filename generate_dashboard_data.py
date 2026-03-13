@@ -43,7 +43,8 @@ def generate_dashboard_data(data_dir=None):
                               'MOMENTUM_12_1_INV', 'DRAWDOWN_1Y'],
         'Valuation / Positioning': ['CAPE', 'BUFFETT_IND', 'HH_EQUITY_ALLOC',
                                      'MARGIN_DEBT', 'MARGIN_DEBT_YOY',
-                                     'COT_LEV_NET_LONG', 'COT_AM_NET_LONG'],
+                                     'COT_LEV_NET_LONG', 'COT_AM_NET_LONG',
+                                     'INSIDER_SELL_BUY'],
         'Cross-Asset': ['GOLD_SP_RATIO', 'CU_AU_RATIO_INV', 'DXY'],
         'Monetary Policy': ['FED_FUNDS', 'RRP_YOY_INV', 'SLOOS'],
     }
@@ -83,10 +84,10 @@ def generate_dashboard_data(data_dir=None):
         'RSI_14': 'RSI (14-day)',
         'MOMENTUM_12_1_INV': '12-1 Month Momentum',
         'DRAWDOWN_1Y': 'Trailing 1Y Drawdown',
-        'BUFFETT_IND': 'Buffett Indicator (Trend Dev)',
+        'BUFFETT_IND': 'Buffett Indicator (Mkt Cap/GDP)',
         'HH_EQUITY_ALLOC': 'Household Equity Allocation',
-        'CAPE': 'Excess CAPE Yield (ECY)',
-        'MARGIN_DEBT': 'Margin Debt (% Mkt Cap)',
+        'CAPE': 'Shiller CAPE (PE10)',
+        'MARGIN_DEBT': 'Margin Debt (% of M2)',
         'MARGIN_DEBT_YOY': 'Margin Debt YoY Growth',
         'COT_LEV_NET_LONG': 'CFTC Leveraged Net Short',
         'COT_AM_NET_LONG': 'CFTC Asset Mgr Net Long',
@@ -96,6 +97,7 @@ def generate_dashboard_data(data_dir=None):
         'FED_FUNDS': 'Real Fed Funds Rate',
         'RRP_YOY_INV': 'Fed Reverse Repo (ON RRP)',
         'SLOOS': 'Bank Lending Standards',
+        'INSIDER_SELL_BUY': 'Insider Sell/Buy Ratio',
     }
 
     DESCRIPTIONS = {
