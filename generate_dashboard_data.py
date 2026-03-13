@@ -496,33 +496,42 @@ def generate_dashboard_data(data_dir=None):
     pct_cols = [c for c in df.columns if c.startswith('PCT_')]
     current_pcts = [float(latest[c]) for c in pct_cols if not pd.isna(latest.get(c))]
     if current_pcts:
-        crash_prob_p90 = round(float(np.percentile(current_pcts, 90)), 1)
-        crash_prob_p75 = round(float(np.percentile(current_pcts, 75)), 1)
-        crash_prob_median = round(float(np.median(current_pcts)), 1)
-        crash_prob_mean = round(float(np.mean(current_pcts)), 1)
+        pct_arr = np.array(current_pcts)
+        # Primary gauge: % of indicators above 80th percentile
+        # (best all-round predictor of forward drawdowns across thresholds)
+        pct_above_80 = round(float((pct_arr > 80).sum() / len(pct_arr) * 100), 1)
+        crash_prob_median = round(float(np.median(pct_arr)), 1)
+        crash_prob_mean = round(float(np.mean(pct_arr)), 1)
+        crash_prob_p75 = round(float(np.percentile(pct_arr, 75)), 1)
+        crash_prob_p90 = round(float(np.percentile(pct_arr, 90)), 1)
     else:
-        crash_prob_p90 = crash_prob_p75 = crash_prob_median = crash_prob_mean = 0
+        pct_above_80 = crash_prob_median = crash_prob_mean = 0
+        crash_prob_p75 = crash_prob_p90 = 0
     n_models = len(current_pcts)
 
-    # --- Median percentile history (last 5 years daily, monthly before) ---
-    # Compute median across all PCT_ columns for each date
+    # --- History: % of indicators above 80th pctl + median pctl ---
     pct_df = df[pct_cols].dropna(how='all')
+    pct_above_80_series = ((pct_df > 80).sum(axis=1) / pct_df.notna().sum(axis=1) * 100).dropna()
     median_pct_series = pct_df.median(axis=1).dropna()
-    crash_prob_history = []
-    if len(median_pct_series) > 0:
-        five_years_ago = median_pct_series.index[-1] - pd.DateOffset(years=5)
-        recent = median_pct_series[median_pct_series.index >= five_years_ago]
-        older = median_pct_series[median_pct_series.index < five_years_ago]
+
+    def _build_history(series):
+        """Downsample: daily for last 5 years, monthly before that."""
+        if len(series) == 0:
+            return []
+        five_years_ago = series.index[-1] - pd.DateOffset(years=5)
+        recent = series[series.index >= five_years_ago]
+        older = series[series.index < five_years_ago]
         if len(older) > 0:
             older_monthly = older.resample('MS').first().dropna()
         else:
             older_monthly = pd.Series(dtype=float)
-        history_index = list(older_monthly.index) + list(recent.index)
-        history_values = list(older_monthly.values) + list(recent.values)
-        crash_prob_history = [
-            {'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
-            for d, v in zip(history_index, history_values)
-        ]
+        idx = list(older_monthly.index) + list(recent.index)
+        vals = list(older_monthly.values) + list(recent.values)
+        return [{'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
+                for d, v in zip(idx, vals)]
+
+    crash_prob_history = _build_history(pct_above_80_series)
+    median_history = _build_history(median_pct_series)
 
     # --- Category scores (median percentile within each category) ---
     category_scores = {}
@@ -609,15 +618,17 @@ def generate_dashboard_data(data_dir=None):
     dashboard = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'latest_date': latest_date,
-        'crash_prob_p90': round(crash_prob_p90, 1),
-        'crash_prob_p75': round(crash_prob_p75, 1),
-        'crash_prob_median': round(crash_prob_median, 1),
-        'crash_prob_mean': round(crash_prob_mean, 1),
-        'primary_definition': 'Full-sample percentile rank',
+        'pct_above_80': pct_above_80,          # headline gauge
+        'crash_prob_median': crash_prob_median,  # secondary
+        'crash_prob_mean': crash_prob_mean,
+        'crash_prob_p75': crash_prob_p75,
+        'crash_prob_p90': crash_prob_p90,
+        'primary_definition': '% of indicators above 80th percentile',
         'n_models': n_models,
         'category_scores': category_scores,
         'indicators': indicators,
-        'crash_prob_history': crash_prob_history,
+        'crash_prob_history': crash_prob_history,  # pct_above_80 history
+        'median_history': median_history,          # median percentile history
         'data_freshness': data_freshness,
         'build_metadata': build_metadata,
         'heatmap': {
@@ -633,9 +644,9 @@ def generate_dashboard_data(data_dir=None):
     with open(out_path, 'w') as f:
         json.dump(dashboard, f, indent=2)
     print(f"Dashboard data saved to {out_path}")
-    print(f"  P(crash) P90:    {crash_prob_p90:.1f}%")
-    print(f"  P(crash) P75:    {crash_prob_p75:.1f}%")
-    print(f"  P(crash) median: {crash_prob_median:.1f}%")
+    print(f"  Pct above 80th:  {pct_above_80:.1f}%")
+    print(f"  Median pctl:     {crash_prob_median:.1f}%")
+    print(f"  P75 / P90:       {crash_prob_p75:.1f}% / {crash_prob_p90:.1f}%")
     print(f"  Indicators: {len(indicators)}")
     print(f"  History points: {len(crash_prob_history)}")
 
