@@ -85,17 +85,17 @@ def generate_dashboard_data(data_dir=None):
         'RSI_14': 'RSI (14-day)',
         'MOMENTUM_12_1_INV': '12-1 Month Momentum',
         'DRAWDOWN_1Y': 'Trailing 1Y Drawdown',
-        'BUFFETT_IND': 'Buffett Indicator',
+        'BUFFETT_IND': 'Buffett Indicator (Trend Dev)',
         'HH_EQUITY_ALLOC': 'Household Equity Allocation',
-        'CAPE': 'Shiller CAPE (PE10)',
-        'MARGIN_DEBT': 'FINRA Margin Debt',
+        'CAPE': 'Excess CAPE Yield (ECY)',
+        'MARGIN_DEBT': 'Margin Debt (% Mkt Cap)',
         'MARGIN_DEBT_YOY': 'Margin Debt YoY Growth',
         'COT_LEV_NET_LONG': 'CFTC Leveraged Net Short',
         'COT_AM_NET_LONG': 'CFTC Asset Mgr Net Long',
         'GOLD_SP_RATIO': 'Gold / S&P 500 Ratio',
         'CU_AU_RATIO_INV': 'Copper / Gold Ratio',
         'DXY': 'US Dollar Index',
-        'FED_FUNDS': 'Fed Funds Rate',
+        'FED_FUNDS': 'Real Fed Funds Rate',
         'RRP_YOY_INV': 'Fed Reverse Repo (ON RRP)',
         'SLOOS': 'Bank Lending Standards',
     }
@@ -333,18 +333,18 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'More negative = deeper drawdown = danger',
         },
         'BUFFETT_IND': {
-            'what': 'Warren Buffett\'s "single best measure of where valuations stand": total stock market capitalization as a percentage of GDP. Persistently high readings suggest overvaluation.',
-            'calc': 'Buffett Indicator = (Total US Market Cap / GDP) * 100. Uses Wilshire 5000 Full Cap Index (FRED: WILL5000IND), where at inception 1 point = $1B market cap, divided by nominal GDP.',
-            'source': 'Wilshire 5000 (yfinance: ^W5000) / GDP (FRED: GDP)',
-            'thresholds': {'green': '< 100%', 'yellow': '120-150%', 'red': '> 150%'},
-            'direction': 'Higher = more overvalued = danger',
+            'what': 'Buffett Indicator deviation from exponential trend, in standard deviations. Per currentmarketvaluation.com and Advisor Perspectives, the raw Market Cap/GDP ratio has an upward exponential trend -- the z-score removes this trend bias.',
+            'calc': 'Fit exponential trend to Market Cap/GDP ratio, then z-score = (actual - trend) / std(deviation). Positive = above trend (overvalued), negative = below trend.',
+            'source': 'Wilshire 5000 (FRED: WILL5000IND) / GDP (FRED: GDP)',
+            'thresholds': {'green': 'z < 0 (below trend)', 'yellow': 'z = 0.5-1.5', 'red': 'z > 1.5 (well above trend)'},
+            'direction': 'Higher z-score = more overvalued vs trend = danger',
         },
         'CAPE': {
-            'what': 'The Shiller Cyclically Adjusted Price-to-Earnings ratio (CAPE or PE10). S&P 500 price divided by 10-year average of real (inflation-adjusted) earnings. The most widely-followed long-term valuation measure, with data back to 1881.',
-            'calc': 'CAPE = S&P 500 Real Price / (10-year moving average of Real Earnings). Both price and earnings are adjusted for CPI inflation. Published monthly by Robert Shiller.',
-            'source': 'Robert Shiller / Yale (http://www.econ.yale.edu/~shiller/data.htm)',
-            'thresholds': {'green': '< 20', 'yellow': '25-30', 'red': '> 30'},
-            'direction': 'Higher = more overvalued relative to long-run earnings = danger',
+            'what': 'Excess CAPE Yield (ECY): the Shiller earnings yield minus the real 10-year Treasury yield. Shiller\'s own improvement to raw CAPE -- accounts for the interest rate regime. Low ECY means stocks are expensive relative to bonds.',
+            'calc': 'ECY = (1/CAPE)*100 - Real 10Y Yield. Real 10Y from TIPS (DFII10) or nominal 10Y minus CPI YoY. Stored inverted: higher value = more danger (lower ECY = more expensive).',
+            'source': 'Shiller CAPE (Yale), TIPS or DGS10-CPI (FRED)',
+            'thresholds': {'green': 'ECY > 4%', 'yellow': 'ECY 2-3%', 'red': 'ECY < 2%'},
+            'direction': 'Lower ECY (higher stored value) = stocks expensive vs bonds = danger',
         },
         'HH_EQUITY_ALLOC': {
             'what': 'Household equity allocation from the Fed\'s Flow of Funds (Z.1) report. Measures the share of household financial assets allocated to equities. High allocation = late-cycle euphoria.',
@@ -354,11 +354,11 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = more crowded into stocks = danger',
         },
         'MARGIN_DEBT': {
-            'what': 'Total debit balances in customers\' securities margin accounts at FINRA member broker-dealers. Raw dollar level — the standard practitioner measure of aggregate margin leverage.',
-            'calc': 'Raw FINRA debit balances converted from $M to $B. Percentile rank handles normalization over time.',
-            'source': 'FINRA margin statistics (monthly)',
-            'thresholds': {'green': 'Below historical median', 'yellow': '75th-90th percentile', 'red': 'Above 90th percentile'},
-            'direction': 'Higher = more speculative leverage = danger',
+            'what': 'FINRA margin debt as a percentage of total US stock market capitalization (Wilshire 5000). Normalizes for market growth over time. Historical range: ~1.3% (troughs) to ~2.9% (peaks).',
+            'calc': 'Margin Debt % = (FINRA Debit Balances in $B) / (Wilshire 5000 market cap in $B) * 100.',
+            'source': 'FINRA margin statistics (monthly), Wilshire 5000 (FRED: WILL5000IND)',
+            'thresholds': {'green': '< 1.8%', 'yellow': '2.0-2.5%', 'red': '> 2.5%'},
+            'direction': 'Higher = more speculative leverage relative to market size = danger',
         },
         'MARGIN_DEBT_YOY': {
             'what': 'Year-over-year growth in raw FINRA margin debt (debit balances). Rapid leverage growth signals accelerating speculation. Sharp declines can signal forced deleveraging.',
@@ -403,11 +403,11 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = stronger dollar = global tightening = danger',
         },
         'FED_FUNDS': {
-            'what': 'The effective federal funds rate -- the interest rate at which banks lend reserves to each other overnight. The primary tool of Federal Reserve monetary policy.',
-            'calc': 'Volume-weighted median rate on overnight federal funds transactions reported by major brokers. Set by the FOMC within a target range.',
-            'source': 'Federal Reserve via FRED: FEDFUNDS',
-            'thresholds': {'green': 'Below neutral rate (r*)', 'yellow': 'Near r*', 'red': 'Well above r*'},
-            'direction': 'Higher = tighter policy = danger',
+            'what': 'The real federal funds rate: nominal fed funds rate minus year-over-year CPI inflation. Positive = restrictive monetary policy (rates above inflation). Negative = accommodative (rates below inflation).',
+            'calc': 'Real FF Rate = Effective Federal Funds Rate - CPI YoY%. CPI YoY = (CPI(t)/CPI(t-12) - 1) * 100.',
+            'source': 'Federal Reserve via FRED: FEDFUNDS, CPIAUCSL',
+            'thresholds': {'green': '< 0% (accommodative)', 'yellow': '0-2% (neutral)', 'red': '> 2% (restrictive)'},
+            'direction': 'Higher = tighter real monetary conditions = danger',
         },
         'RRP_YOY_INV': {
             'what': 'Daily outstanding balance in the Fed\'s Overnight Reverse Repo Facility (ON RRP). The ON RRP absorbs excess liquidity — high levels mean ample reserves; low levels mean tighter conditions.',
@@ -551,8 +551,9 @@ def generate_dashboard_data(data_dir=None):
             category_scores[cat_name] = round(float(np.percentile(probs, 90)), 1)
 
     # --- Heatmap data: percentile ranks + forward returns + realized drawdown ---
-    # Monthly sampling (first business day of each month)
-    monthly_idx = df.resample('MS').first().index
+    # Monthly sampling — use BMS (business month start) to avoid dropping
+    # months where the 1st falls on a weekend
+    monthly_idx = df.resample('BMS').first().index
     monthly_idx = monthly_idx[monthly_idx.isin(df.index)]
 
     heatmap_dates = [d.strftime('%Y-%m-%d') for d in monthly_idx]
@@ -575,15 +576,16 @@ def generate_dashboard_data(data_dir=None):
     else:
         heatmap_realized = []
 
-    # Per-indicator percentile rank time series
+    # Per-indicator crash probability time series (PROB_ columns from logistic regressions)
     heatmap_indicators = []
     for cat_name, cat_inds in CATEGORIES.items():
         for ind_name in cat_inds:
-            pct_col = f'PCT_{ind_name}'
-            if pct_col not in df.columns:
+            prob_col = f'PROB_{ind_name}'
+            if prob_col not in df.columns:
                 continue
-            series = df[pct_col].reindex(monthly_idx)
-            values = [round(float(v), 1) if not pd.isna(v) else None
+            series = df[prob_col].reindex(monthly_idx)
+            # Convert to percentage (0-100 scale)
+            values = [round(float(v) * 100, 1) if not pd.isna(v) else None
                       for v in series.values]
             # Only include if has some data
             if any(v is not None for v in values):
@@ -593,6 +595,30 @@ def generate_dashboard_data(data_dir=None):
                     'category': cat_name,
                     'values': values,
                 })
+
+    # --- Data freshness metadata ---
+    market_data_age_days = (datetime.now() - df.index[-1]).days
+    data_freshness = {
+        'market_data_age_days': market_data_age_days,
+        'is_stale': market_data_age_days > 3,
+        'latest_market_date': latest_date,
+        'generated_at_utc': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'stale_sources': [],
+    }
+
+    # Read build_metadata.json if available
+    build_metadata = None
+    meta_path = data_dir / 'build_metadata.json'
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                build_metadata = json.load(f)
+            data_freshness['stale_sources'] = (
+                build_metadata.get('sources_stale_cache', []) +
+                build_metadata.get('sources_failed', [])
+            )
+        except Exception:
+            pass
 
     # --- Assemble output ---
     dashboard = {
@@ -608,6 +634,8 @@ def generate_dashboard_data(data_dir=None):
         'category_scores': category_scores,
         'indicators': indicators,
         'crash_prob_history': crash_prob_history,
+        'data_freshness': data_freshness,
+        'build_metadata': build_metadata,
         'heatmap': {
             'dates': heatmap_dates,
             'realized_dd': heatmap_realized,

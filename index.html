@@ -302,6 +302,21 @@
   }
 
   /* Loading */
+  .staleness-banner {
+    display: none;
+    background: linear-gradient(90deg, #b71c1c, #d32f2f);
+    color: #fff;
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .staleness-banner .banner-detail {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+
   .loading {
     text-align: center;
     padding: 80px 20px;
@@ -327,6 +342,8 @@
 </style>
 </head>
 <body>
+
+<div id="staleness-banner" class="staleness-banner"></div>
 
 <div class="header">
   <h1>MARKET CRASH PROBABILITY</h1>
@@ -434,7 +451,7 @@
 
     <!-- Heatmap: realized drawdown + per-indicator crash probs -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Indicator Percentile Ranks vs Realized Drawdown</div>
+      <div class="section-title" style="margin-bottom:12px">Indicator Crash Probabilities vs Realized Outcomes</div>
       <div id="heatmap-container" style="overflow-x:auto;"></div>
     </div>
 
@@ -496,7 +513,7 @@ async function triggerRefresh() {
       btn.disabled = false; btn.style.opacity = '1';
     }
   } catch(e) {
-    status.textContent = 'Network error';
+    status.textContent = 'Network error: ' + e.message;
     btn.disabled = false; btn.style.opacity = '1';
   }
 }
@@ -737,18 +754,19 @@ function renderHeatmap(heatmap) {
 
   const labelEvery = Math.max(1, Math.floor(dates.length / 25));
 
-  // Percentile rank color: green (low) -> yellow -> orange -> red (high)
+  // Crash probability color: green (low P(crash)) -> yellow -> orange -> red (high)
+  // Tuned for crash probs: most values 5-40%, saturate at 60%+
   function pctColor(val) {
     if (val === null || val === undefined) return 'none';
-    const t = Math.min(val / 100, 1);
-    if (t < 0.33) {
-      const s = t / 0.33;
+    const t = Math.min(val / 60, 1);  // saturate at 60% P(crash)
+    if (t < 0.25) {
+      const s = t / 0.25;
       return `rgb(${Math.round(34+s*196)},${Math.round(180+s*20)},${Math.round(34-s*34)})`;
-    } else if (t < 0.66) {
-      const s = (t - 0.33) / 0.33;
+    } else if (t < 0.5) {
+      const s = (t - 0.25) / 0.25;
       return `rgb(${Math.round(230+s*10)},${Math.round(200-s*100)},0)`;
     } else {
-      const s = (t - 0.66) / 0.34;
+      const s = (t - 0.5) / 0.5;
       return `rgb(${Math.round(240+s*15)},${Math.round(100-s*100)},${Math.round(s*30)})`;
     }
   }
@@ -834,19 +852,19 @@ function renderHeatmap(heatmap) {
       const val = ind.values[i];
       const color = val === null || val === undefined ? nullColor : pctColor(val);
       svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
-      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? val.toFixed(0) + 'th pctile' : 'N/A'}</title></rect>`;
+      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? 'P(crash): ' + val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
     }
     y += cellH + 1;
   }
 
-  // Year labels at bottom — show every 5 years aligned to round years
+  // Year labels at bottom — show every 5 years, detect year transitions
   const labelY = y + 14;
   let lastLabelYear = 0;
   const yearInterval = dates.length > 400 ? 5 : dates.length > 200 ? 2 : 1;
   for (let i = 0; i < dates.length; i++) {
     const yr = parseInt(dates[i].substring(0, 4));
-    const mo = parseInt(dates[i].substring(5, 7));
-    if (mo === 1 && yr % yearInterval === 0 && yr !== lastLabelYear) {
+    // Show label on first occurrence of a year divisible by yearInterval
+    if (yr % yearInterval === 0 && yr !== lastLabelYear) {
       const x = labelW + i * cellW + cellW / 2;
       svg += `<text x="${x}" y="${labelY}" fill="#8a9ab5" font-size="10" text-anchor="middle" font-weight="500">${yr}</text>`;
       svg += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 4}" stroke="#555" stroke-width="1"/>`;
@@ -856,10 +874,10 @@ function renderHeatmap(heatmap) {
 
   // Legends
   const legendY = labelY + 18;
-  // Percentile legend
-  const pctLegend = [['< 20th', pctColor(10)], ['20-40th', pctColor(30)], ['40-60th', pctColor(50)],
-    ['60-80th', pctColor(70)], ['80-90th', pctColor(85)], ['90th+', pctColor(95)], ['No data', nullColor]];
-  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">Percentile:</text>`;
+  // P(crash) legend
+  const pctLegend = [['< 5%', pctColor(2.5)], ['5-10%', pctColor(7.5)], ['10-20%', pctColor(15)],
+    ['20-30%', pctColor(25)], ['30-45%', pctColor(37)], ['45%+', pctColor(52)], ['No data', nullColor]];
+  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">P(crash):</text>`;
   let lx = labelW + 65;
   for (const [label, color] of pctLegend) {
     svg += `<rect x="${lx}" y="${legendY}" width="14" height="14" fill="${color}" rx="2" stroke="#333" stroke-width="0.5"/>`;
@@ -882,6 +900,48 @@ function renderHeatmap(heatmap) {
   container.innerHTML = svg;
 }
 
+function timeAgo(dateStr) {
+  const then = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
+  const now = new Date();
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return mins + ' minutes ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + ' hour' + (hrs > 1 ? 's' : '') + ' ago';
+  const days = Math.floor(hrs / 24);
+  return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+}
+
+function renderStaleness(data) {
+  const banner = document.getElementById('staleness-banner');
+  const freshness = data.data_freshness;
+  if (!freshness) return;
+
+  const ageDays = freshness.market_data_age_days;
+  const isStale = freshness.is_stale;
+  const staleSources = freshness.stale_sources || [];
+  const buildMeta = data.build_metadata;
+  const failedSources = buildMeta ? (buildMeta.sources_failed || []) : [];
+
+  if (isStale || failedSources.length > 0) {
+    let msg = '';
+    if (isStale) {
+      const ago = timeAgo(freshness.latest_market_date);
+      msg = 'Data is stale — last market data from ' + ago + ' (' + freshness.latest_market_date + ')';
+    }
+    let detail = '';
+    if (failedSources.length > 0) {
+      detail += 'Failed sources: ' + failedSources.join(', ') + '. ';
+    }
+    if (staleSources.length > 0) {
+      detail += 'Stale/cached: ' + staleSources.join(', ') + '.';
+    }
+    banner.innerHTML = (msg ? '<div>' + msg + '</div>' : '') +
+      (detail ? '<div class="banner-detail">' + detail + '</div>' : '');
+    banner.style.display = 'block';
+  }
+}
+
 // --- Load and render ---
 async function init() {
   try {
@@ -892,10 +952,13 @@ async function init() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
 
+    // Staleness banner
+    renderStaleness(data);
+
     // Header
     document.getElementById('update-date').textContent = data.latest_date;
     document.getElementById('data-date').textContent = data.latest_date;
-    document.getElementById('gen-date').textContent = data.generated_at;
+    document.getElementById('gen-date').textContent = data.generated_at + ' (' + timeAgo(data.generated_at) + ')';
     document.getElementById('crash-def').textContent = data.primary_definition;
     document.getElementById('n-models').textContent = data.n_models;
 

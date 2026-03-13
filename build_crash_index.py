@@ -53,6 +53,36 @@ PRIMARY_HORIZON = '6M'  # primary crash definition: within 6 months
 CACHE_DIR = Path(__file__).parent / '.cache'
 CACHE_DIR.mkdir(exist_ok=True)
 
+import pickle
+import time as _time
+
+def retry_with_cache(name, fetch_fn, cache_path, retries=3, delay=3.0):
+    """Try fetch_fn up to `retries` times; fall back to stale pickle cache."""
+    for attempt in range(1, retries + 1):
+        try:
+            result = fetch_fn()
+            if result is not None and (not hasattr(result, '__len__') or len(result) > 0):
+                with open(cache_path, 'wb') as f:
+                    pickle.dump(result, f)
+                return result
+        except Exception as e:
+            wait = delay * attempt
+            print(f"  [{name}] attempt {attempt}/{retries} failed: {e}" +
+                  (f" — retrying in {wait:.0f}s" if attempt < retries else ""))
+            if attempt < retries:
+                _time.sleep(wait)
+    # All retries failed — try stale cache
+    if cache_path.exists():
+        try:
+            with open(cache_path, 'rb') as f:
+                result = pickle.load(f)
+            print(f"  [{name}] using STALE CACHE from {cache_path.name}")
+            return result
+        except Exception:
+            pass
+    print(f"  [{name}] FAILED — no cache available")
+    return None
+
 
 def download_fred_csv(series_id, start_date=START_DATE):
     """Download a single FRED series via direct CSV (no API key needed).
@@ -127,18 +157,25 @@ def download_fred_series(series_dict):
 
 def download_yfinance_series(tickers_dict):
     """Download multiple yfinance tickers into a DataFrame."""
+    import time as _time
     data = {}
     for name, ticker in tickers_dict.items():
-        try:
-            df = yf.download(ticker, start=START_DATE, end=END_DATE,
-                             progress=False, auto_adjust=True)
-            if df is not None and len(df) > 0:
-                data[name] = df['Close'].squeeze()
-                print(f"  [OK] {name} ({ticker}): {len(df)} obs")
-            else:
-                print(f"  [EMPTY] {name} ({ticker})")
-        except Exception as e:
-            print(f"  [FAIL] {name} ({ticker}): {e}")
+        for attempt in range(1, 3):  # 2 attempts per ticker
+            try:
+                df = yf.download(ticker, start=START_DATE, end=END_DATE,
+                                 progress=False, auto_adjust=True)
+                if df is not None and len(df) > 0:
+                    data[name] = df['Close'].squeeze()
+                    print(f"  [OK] {name} ({ticker}): {len(df)} obs")
+                    break
+                else:
+                    print(f"  [EMPTY] {name} ({ticker}), attempt {attempt}/2")
+                    if attempt < 2:
+                        _time.sleep(3)
+            except Exception as e:
+                print(f"  [FAIL] {name} ({ticker}), attempt {attempt}/2: {e}")
+                if attempt < 2:
+                    _time.sleep(3)
     if data:
         df = pd.DataFrame(data)
         df.index = pd.to_datetime(df.index)
@@ -353,6 +390,10 @@ def download_all_data():
         'TWD_DOLLAR': 'DTWEXBGS',
         # S&P 500
         'SP500_FRED': 'SP500',
+        # CPI (for real rates)
+        'CPIAUCSL': 'CPIAUCSL',
+        # TIPS 10Y real yield (for Excess CAPE Yield)
+        'DFII10': 'DFII10',
         # GDP (for Buffett indicator)
         'GDP': 'GDP',
         # Wilshire 5000 Total Market Full Cap Index (for Buffett indicator)
@@ -381,18 +422,30 @@ def download_all_data():
     yf_df = download_yfinance_series(yf_tickers)
 
     print("\n=== Downloading EBP from Fed ===")
-    ebp_df = download_ebp()
+    ebp_df = retry_with_cache('EBP', download_ebp,
+                              CACHE_DIR / 'ebp.pkl')
+    if ebp_df is None:
+        ebp_df = pd.DataFrame()
 
     print("\n=== Downloading FINRA Margin Debt ===")
-    margin_debt = download_finra_margin()
+    margin_debt = retry_with_cache('FINRA_MARGIN', download_finra_margin,
+                                   CACHE_DIR / 'finra_margin.pkl')
+    if margin_debt is None:
+        margin_debt = pd.Series(dtype=float, name='MARGIN_DEBT')
 
     # CBOE Put/Call Ratio: discontinued archives (stopped 2019), skipped
 
     print("\n=== Downloading Shiller CAPE ===")
-    cape_series = download_shiller_cape()
+    cape_series = retry_with_cache('SHILLER_CAPE', download_shiller_cape,
+                                   CACHE_DIR / 'shiller_cape.pkl')
+    if cape_series is None:
+        cape_series = pd.Series(dtype=float, name='CAPE')
 
     print("\n=== Downloading CFTC COT (S&P 500 spec positioning) ===")
-    cot_df = download_cftc_cot()
+    cot_df = retry_with_cache('CFTC_COT', download_cftc_cot,
+                              CACHE_DIR / 'cftc_cot.pkl')
+    if cot_df is None:
+        cot_df = pd.DataFrame()
 
     return fred_df, yf_df, ebp_df, margin_debt, None, cot_df, cape_series
 
@@ -765,21 +818,74 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         if wilshire is not None:
             # Both Wilshire index and GDP are in $B-equivalent units
             buffett = wilshire / gdp * 100
-            indicators['BUFFETT_IND'] = buffett
-            print(f"  [OK] Buffett Indicator (market cap/GDP via {src})")
+            # Practitioner standard (currentmarketvaluation.com, Advisor Perspectives):
+            # Express as deviation from exponential trend in standard deviations
+            buffett_clean = buffett.dropna()
+            if len(buffett_clean) > 20:
+                log_buffett = np.log(buffett_clean)
+                x = np.arange(len(log_buffett))
+                slope, intercept = np.polyfit(x, log_buffett.values, 1)
+                trend = np.exp(intercept + slope * x)
+                deviation = buffett_clean.values - trend
+                deviation_sd = deviation / np.std(deviation)
+                buffett_zscore = pd.Series(deviation_sd, index=buffett_clean.index)
+                indicators['BUFFETT_IND'] = buffett_zscore.reindex(idx)
+                print(f"  [OK] Buffett Indicator (z-score from exp trend via {src})")
+            else:
+                indicators['BUFFETT_IND'] = buffett
+                print(f"  [OK] Buffett Indicator (raw ratio, too few obs for trend)")
 
-    # --- Shiller CAPE (Cyclically Adjusted PE Ratio) ---
-    # The most widely-followed long-term valuation measure. Monthly, from 1881.
+    # --- Excess CAPE Yield (ECY) ---
+    # Shiller's own improvement: ECY = (1/CAPE)*100 - real 10Y yield
+    # Accounts for interest rate regime; more meaningful than raw CAPE
+    # High ECY = stocks cheap vs bonds (bullish); low ECY = stocks expensive (danger)
     if cape_series is not None and len(cape_series.dropna()) > 0:
-        indicators['CAPE'] = to_daily(cape_series)
-        print(f"  [OK] Shiller CAPE (PE10): {len(cape_series.dropna())} monthly obs")
+        cape_daily = to_daily(cape_series)
+        earnings_yield = (1.0 / cape_daily) * 100  # CAPE earnings yield in %
 
-    # --- FINRA Margin Debt (raw level in $B) ---
-    # Practitioners track raw margin debt levels; percentile rank handles normalization
+        # Real 10Y yield: prefer TIPS (DFII10), else nominal 10Y - CPI YoY
+        real_10y = None
+        if 'DFII10' in fred_df.columns and fred_df['DFII10'].dropna().shape[0] > 100:
+            real_10y = to_daily(fred_df['DFII10'])
+            print("  [OK] Real 10Y yield from TIPS (DFII10)")
+        elif 'DGS10' in fred_df.columns and 'CPIAUCSL' in fred_df.columns:
+            nom_10y = to_daily(fred_df['DGS10'])
+            cpi_raw = fred_df['CPIAUCSL'].dropna()
+            cpi_yoy = (cpi_raw / cpi_raw.shift(12) - 1) * 100  # 12 monthly obs
+            cpi_yoy_daily = to_daily(cpi_yoy)
+            real_10y = nom_10y - cpi_yoy_daily
+            print("  [OK] Real 10Y yield from nominal 10Y - CPI YoY")
+
+        if real_10y is not None:
+            ecy = earnings_yield - real_10y
+            # NOTE: Higher ECY = stocks cheap vs bonds = LESS danger
+            # We need to invert so higher = more danger for the model
+            # But the logistic regression learns direction automatically from
+            # percentile ranks, so we store the inverted ECY (lower ECY = more danger)
+            indicators['CAPE'] = -ecy  # inverted: low ECY (expensive) = high value = danger
+            print(f"  [OK] Excess CAPE Yield (inverted): {len(cape_series.dropna())} monthly obs")
+        else:
+            # Fallback: raw CAPE (higher = more danger)
+            indicators['CAPE'] = cape_daily
+            print(f"  [OK] Shiller CAPE (raw, no real yield for ECY): {len(cape_series.dropna())} monthly obs")
+
+    # --- FINRA Margin Debt as % of Total Market Cap ---
+    # Practitioner standard: margin debt / Wilshire 5000 market cap * 100
+    # Historical range ~1.3% (trough) to ~2.9% (peak)
     if margin_debt is not None and len(margin_debt.dropna()) > 0:
-        md = to_daily(margin_debt)
-        indicators['MARGIN_DEBT'] = md / 1000  # convert $M to $B for readability
-        print("  [OK] Margin Debt (raw level, $B)")
+        md = to_daily(margin_debt) / 1000  # $M -> $B
+        # Get Wilshire 5000 as market cap proxy
+        wilshire_for_md = None
+        if 'WILL5000' in fred_df.columns and fred_df['WILL5000'].dropna().shape[0] > 100:
+            wilshire_for_md = to_daily(fred_df['WILL5000'])
+        elif 'WILSHIRE' in yf_df.columns:
+            wilshire_for_md = to_daily(yf_df['WILSHIRE'])
+        if wilshire_for_md is not None:
+            indicators['MARGIN_DEBT'] = md / wilshire_for_md * 100  # % of market cap
+            print("  [OK] Margin Debt (% of market cap)")
+        else:
+            indicators['MARGIN_DEBT'] = md  # fallback: raw $B
+            print("  [OK] Margin Debt (raw $B, no Wilshire for normalization)")
         # YoY growth of raw margin debt (standard practitioner measure)
         md_raw = margin_debt.dropna()
         md_yoy_raw = md_raw.pct_change(12) * 100  # 12 monthly obs
@@ -825,10 +931,20 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
         indicators['HY_OAS_MOMENTUM'] = hy_mom
         print("  [OK] HY OAS Momentum")
 
-    # --- Fed Funds Rate level (higher = tighter) ---
+    # --- Real Fed Funds Rate (nominal - CPI YoY) ---
+    # Practitioner standard: real rate = nominal FF - inflation
+    # Positive = restrictive, negative = accommodative
     if 'FEDFUNDS' in fred_df.columns:
-        indicators['FED_FUNDS'] = to_daily(fred_df['FEDFUNDS'])
-        print("  [OK] Fed Funds Rate")
+        ff = to_daily(fred_df['FEDFUNDS'])
+        if 'CPIAUCSL' in fred_df.columns:
+            cpi_raw = fred_df['CPIAUCSL'].dropna()
+            cpi_yoy = (cpi_raw / cpi_raw.shift(12) - 1) * 100  # 12 monthly obs
+            cpi_yoy_daily = to_daily(cpi_yoy)
+            indicators['FED_FUNDS'] = ff - cpi_yoy_daily  # real rate
+            print("  [OK] Real Fed Funds Rate (nominal - CPI YoY)")
+        else:
+            indicators['FED_FUNDS'] = ff  # fallback: nominal
+            print("  [OK] Fed Funds Rate (nominal, no CPI for real rate)")
 
     # --- Fed Funds - 10Y (inverted curve from funds rate perspective) ---
     if 'FEDFUNDS' in fred_df.columns and 'DGS10' in fred_df.columns:
@@ -1528,6 +1644,45 @@ def main():
         for col in current_low.index:
             ind_name = col.replace('PROB_', '')
             print(f"  {ind_name:30s}  P(crash)={current_low[col]:.1%}")
+
+    # 10. Emit build metadata
+    import json as _json
+    build_meta = {
+        'build_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'dataset_shape': list(dataset.shape),
+        'latest_date': str(dataset.index[-1].date()),
+        'sources_ok': [],
+        'sources_stale_cache': [],
+        'sources_failed': [],
+    }
+    # Check which sources succeeded
+    source_checks = {
+        'FRED': len(fred_df) > 0 if fred_df is not None else False,
+        'yfinance': len(yf_df) > 0 if yf_df is not None else False,
+        'EBP': len(ebp_df) > 0 if ebp_df is not None else False,
+        'FINRA_margin': len(margin_debt) > 0 if margin_debt is not None else False,
+        'Shiller_CAPE': len(cape_series) > 0 if cape_series is not None else False,
+        'CFTC_COT': len(cot_df) > 0 if cot_df is not None else False,
+    }
+    for src, ok in source_checks.items():
+        if ok:
+            build_meta['sources_ok'].append(src)
+        else:
+            build_meta['sources_failed'].append(src)
+    # Check for stale caches (pickle files used as fallback)
+    for cache_name in ['ebp.pkl', 'finra_margin.pkl', 'shiller_cape.pkl', 'cftc_cot.pkl']:
+        cache_path = CACHE_DIR / cache_name
+        if cache_path.exists():
+            age_hours = (datetime.now().timestamp() - cache_path.stat().st_mtime) / 3600
+            if age_hours > 24:
+                src = cache_name.replace('.pkl', '')
+                if src not in [s.lower().replace('_', '') for s in build_meta['sources_failed']]:
+                    build_meta['sources_stale_cache'].append(src)
+
+    meta_path = output_dir / 'build_metadata.json'
+    with open(meta_path, 'w') as f:
+        _json.dump(build_meta, f, indent=2)
+    print(f"\nBuild metadata saved to {meta_path}")
 
     print("\nDone!")
     return dataset

@@ -6,3 +6,6 @@ __pycache__/
 *~
 crash_index_dataset.csv
 .DS_Store
+.cache/
+build_log.txt
+build_metadata.json
