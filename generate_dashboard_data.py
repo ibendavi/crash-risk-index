@@ -28,8 +28,6 @@ def generate_dashboard_data(data_dir=None):
     latest = df.iloc[-1]
     latest_date = df.index[-1].strftime('%Y-%m-%d')
 
-    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
-
     # --- Indicator metadata ---
     CATEGORIES = {
         'Volatility': ['VIX', 'VVIX', 'SKEW', 'REALIZED_VOL', 'VRP_INV', 'VIX_RV_SPREAD_INV'],
@@ -449,19 +447,19 @@ def generate_dashboard_data(data_dir=None):
         'FED_FUNDS': 'Monthly', 'RRP_YOY_INV': 'Daily', 'SLOOS': 'Quarterly',
     }
 
-    # --- Build indicator data (now using crash probabilities) ---
+    # --- Build indicator data (using full-sample percentile ranks) ---
     indicators = []
 
     for cat_name, cat_indicators in CATEGORIES.items():
         for ind_name in cat_indicators:
-            prob_col = f'PROB_{ind_name}'
-            if prob_col not in df.columns:
+            pct_col = f'PCT_{ind_name}'
+            if pct_col not in df.columns:
                 continue
 
-            crash_prob = latest.get(prob_col, np.nan)
+            pct_rank = latest.get(pct_col, np.nan)
             raw = latest.get(ind_name, np.nan)
 
-            if pd.isna(crash_prob):
+            if pd.isna(pct_rank):
                 continue
 
             # Compute staleness
@@ -481,7 +479,7 @@ def generate_dashboard_data(data_dir=None):
                 'id': ind_name,
                 'name': DISPLAY_NAMES.get(ind_name, ind_name),
                 'category': cat_name,
-                'crash_prob': round(float(crash_prob) * 100, 1),  # as percentage
+                'crash_prob': round(float(pct_rank), 1),  # percentile rank (0-100)
                 'raw_value': round(float(raw), 4) if not pd.isna(raw) else None,
                 'frequency': FREQUENCY.get(ind_name, 'Unknown'),
                 'last_update': last_update,
@@ -492,63 +490,48 @@ def generate_dashboard_data(data_dir=None):
                 'direction': desc.get('direction', ''),
             })
 
-    # --- Main crash probability (primary definition) ---
-    median_col = f'CRASH_PROB_MEDIAN_{primary_tag}'
-    p75_col = f'CRASH_PROB_P75_{primary_tag}'
-    p90_col = f'CRASH_PROB_P90_{primary_tag}'
-    mean_col = f'CRASH_PROB_MEAN_{primary_tag}'
-    n_models_col = f'N_MODELS_{primary_tag}'
+    # --- Aggregate percentile stats across indicators ---
+    pct_cols = [c for c in df.columns if c.startswith('PCT_')]
+    current_pcts = [float(latest[c]) for c in pct_cols if not pd.isna(latest.get(c))]
+    if current_pcts:
+        crash_prob_p90 = round(float(np.percentile(current_pcts, 90)), 1)
+        crash_prob_p75 = round(float(np.percentile(current_pcts, 75)), 1)
+        crash_prob_median = round(float(np.median(current_pcts)), 1)
+        crash_prob_mean = round(float(np.mean(current_pcts)), 1)
+    else:
+        crash_prob_p90 = crash_prob_p75 = crash_prob_median = crash_prob_mean = 0
+    n_models = len(current_pcts)
 
-    crash_prob_p90 = float(latest.get(p90_col, 0)) * 100
-    crash_prob_p75 = float(latest.get(p75_col, 0)) * 100
-    crash_prob_median = float(latest.get(median_col, 0)) * 100
-    crash_prob_mean = float(latest.get(mean_col, 0)) * 100
-    n_models = int(latest.get(n_models_col, 0))
-
-    # --- Secondary crash probabilities (using P90) ---
-    secondary_probs = {}
-    for threshold in [5, 10, 15, 20]:
-        for horizon in ['3M', '6M', '12M']:
-            tag = f'{threshold}pct_{horizon}'
-            col = f'CRASH_PROB_P90_{tag}'
-            if col in df.columns and not pd.isna(latest.get(col)):
-                secondary_probs[f'DD>{threshold}% in {horizon}'] = round(
-                    float(latest[col]) * 100, 1)
-
-    # --- Crash probability history (P90, last 5 years daily, monthly before) ---
-    history_col = p90_col if p90_col in df.columns else median_col
-    if history_col in df.columns:
-        prob_history = df[history_col].dropna() * 100  # convert to %
-
-        five_years_ago = prob_history.index[-1] - pd.DateOffset(years=5)
-        recent = prob_history[prob_history.index >= five_years_ago]
-
-        older = prob_history[prob_history.index < five_years_ago]
+    # --- Median percentile history (last 5 years daily, monthly before) ---
+    # Compute median across all PCT_ columns for each date
+    pct_df = df[pct_cols].dropna(how='all')
+    median_pct_series = pct_df.median(axis=1).dropna()
+    crash_prob_history = []
+    if len(median_pct_series) > 0:
+        five_years_ago = median_pct_series.index[-1] - pd.DateOffset(years=5)
+        recent = median_pct_series[median_pct_series.index >= five_years_ago]
+        older = median_pct_series[median_pct_series.index < five_years_ago]
         if len(older) > 0:
             older_monthly = older.resample('MS').first().dropna()
         else:
             older_monthly = pd.Series(dtype=float)
-
         history_index = list(older_monthly.index) + list(recent.index)
         history_values = list(older_monthly.values) + list(recent.values)
-
         crash_prob_history = [
             {'date': d.strftime('%Y-%m-%d'), 'value': round(float(v), 2)}
             for d, v in zip(history_index, history_values)
         ]
-    else:
-        crash_prob_history = []
 
-    # --- Category scores (P90 of per-indicator crash probs within each category) ---
+    # --- Category scores (median percentile within each category) ---
     category_scores = {}
     for cat_name, cat_indicators in CATEGORIES.items():
-        probs = []
+        pcts = []
         for ind_name in cat_indicators:
-            prob_col = f'PROB_{ind_name}'
-            if prob_col in df.columns and not pd.isna(latest.get(prob_col)):
-                probs.append(float(latest[prob_col]) * 100)
-        if probs:
-            category_scores[cat_name] = round(float(np.percentile(probs, 90)), 1)
+            pct_col = f'PCT_{ind_name}'
+            if pct_col in df.columns and not pd.isna(latest.get(pct_col)):
+                pcts.append(float(latest[pct_col]))
+        if pcts:
+            category_scores[cat_name] = round(float(np.median(pcts)), 1)
 
     # --- Heatmap data: percentile ranks + forward returns + realized drawdown ---
     # Monthly sampling — use BMS (business month start) to avoid dropping
@@ -576,16 +559,16 @@ def generate_dashboard_data(data_dir=None):
     else:
         heatmap_realized = []
 
-    # Per-indicator crash probability time series (PROB_ columns from logistic regressions)
+    # Per-indicator percentile rank time series (PCT_ columns)
     heatmap_indicators = []
     for cat_name, cat_inds in CATEGORIES.items():
         for ind_name in cat_inds:
-            prob_col = f'PROB_{ind_name}'
-            if prob_col not in df.columns:
+            pct_col = f'PCT_{ind_name}'
+            if pct_col not in df.columns:
                 continue
-            series = df[prob_col].reindex(monthly_idx)
-            # Convert to percentage (0-100 scale)
-            values = [round(float(v) * 100, 1) if not pd.isna(v) else None
+            series = df[pct_col].reindex(monthly_idx)
+            # Already 0-100 scale
+            values = [round(float(v), 1) if not pd.isna(v) else None
                       for v in series.values]
             # Only include if has some data
             if any(v is not None for v in values):
@@ -628,9 +611,8 @@ def generate_dashboard_data(data_dir=None):
         'crash_prob_p75': round(crash_prob_p75, 1),
         'crash_prob_median': round(crash_prob_median, 1),
         'crash_prob_mean': round(crash_prob_mean, 1),
-        'primary_definition': f'DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}',
+        'primary_definition': 'Full-sample percentile rank',
         'n_models': n_models,
-        'secondary_probs': secondary_probs,
         'category_scores': category_scores,
         'indicators': indicators,
         'crash_prob_history': crash_prob_history,

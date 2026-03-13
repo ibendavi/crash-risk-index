@@ -816,24 +816,12 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
             wilshire = to_daily(yf_df['WILSHIRE'])
             src = 'yfinance ^W5000'
         if wilshire is not None:
-            # Both Wilshire index and GDP are in $B-equivalent units
+            # Practitioner standard: Total Market Cap / GDP as percentage
+            # This is how Reddit, currentmarketvaluation.com, and Advisor
+            # Perspectives present the Buffett Indicator (raw ratio, no detrending)
             buffett = wilshire / gdp * 100
-            # Practitioner standard (currentmarketvaluation.com, Advisor Perspectives):
-            # Express as deviation from exponential trend in standard deviations
-            buffett_clean = buffett.dropna()
-            if len(buffett_clean) > 20:
-                log_buffett = np.log(buffett_clean)
-                x = np.arange(len(log_buffett))
-                slope, intercept = np.polyfit(x, log_buffett.values, 1)
-                trend = np.exp(intercept + slope * x)
-                deviation = buffett_clean.values - trend
-                deviation_sd = deviation / np.std(deviation)
-                buffett_zscore = pd.Series(deviation_sd, index=buffett_clean.index)
-                indicators['BUFFETT_IND'] = buffett_zscore.reindex(idx)
-                print(f"  [OK] Buffett Indicator (z-score from exp trend via {src})")
-            else:
-                indicators['BUFFETT_IND'] = buffett
-                print(f"  [OK] Buffett Indicator (raw ratio, too few obs for trend)")
+            indicators['BUFFETT_IND'] = buffett.reindex(idx)
+            print(f"  [OK] Buffett Indicator (market cap/GDP % via {src})")
 
     # --- Excess CAPE Yield (ECY) ---
     # Shiller's own improvement: ECY = (1/CAPE)*100 - real 10Y yield
@@ -1057,8 +1045,9 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
 
 def normalize_indicators(indicators):
     """
-    Convert each indicator to a 0-100 danger score using expanding-window
-    percentile ranks. This avoids look-ahead bias.
+    Convert each indicator to a 0-100 danger score using full-sample
+    percentile ranks.  Shows where each value sits in the entire
+    historical distribution — the practitioner perspective.
 
     Returns:
         danger_scores: DataFrame with NaN where indicator is unavailable
@@ -1067,7 +1056,7 @@ def normalize_indicators(indicators):
                               or 0) — for ML model features
         miss_flags: DataFrame of MISS_{col} flags (1 = originally missing)
     """
-    print("\n=== Normalizing indicators to 0-100 danger scores ===")
+    print("\n=== Normalizing indicators to 0-100 danger scores (full-sample) ===")
 
     danger_scores = pd.DataFrame(index=indicators.index)
     danger_scores_filled = pd.DataFrame(index=indicators.index)
@@ -1083,8 +1072,8 @@ def normalize_indicators(indicators):
             print(f"  [SKIP] {col}: only {len(series)} obs (need {MIN_HISTORY})")
             continue
 
-        # Expanding percentile rank (no look-ahead)
-        rank = series.expanding(min_periods=MIN_HISTORY).rank(pct=True) * 100
+        # Full-sample percentile rank
+        rank = series.rank(pct=True) * 100
         ds = rank.reindex(indicators.index)
 
         # Keep NaN version for composite (NaN-aware averaging)
@@ -1544,51 +1533,31 @@ def main():
     # 3. Percentile rank (expanding window, no look-ahead)
     percentiles, _, miss_flags = normalize_indicators(indicators)
 
-    # 4. Get S&P 500
+    # 4. Get S&P 500 (for forward returns)
     sp500 = None
     if 'SP500' in yf_df.columns:
         sp500 = yf_df['SP500']
     elif 'SP500_FRED' in fred_df.columns:
         sp500 = fred_df['SP500_FRED']
 
-    if sp500 is None:
-        print("[ERROR] No S&P 500 data — cannot compute crash probabilities")
-        return None
-
-    # 5. Compute crash probabilities via per-indicator logistic regressions
-    aggregate_probs, indicator_probs = compute_crash_probabilities(percentiles, sp500)
-
-    # 6. Backtest
-    tbill = fred_df.get('DGS3MO') if 'DGS3MO' in fred_df.columns else None
-    bt = backtest(aggregate_probs, sp500, tbill_rate=tbill)
-
-    # 7. Save dataset
+    # 5. Save dataset (indicators + percentile ranks)
     dataset = indicators.copy()
 
-    # Add percentile ranks
     for col in percentiles.columns:
         dataset[f'PCT_{col}'] = percentiles[col]
 
-    # Add per-indicator crash probs for primary definition
-    primary_key = (PRIMARY_THRESHOLD, PRIMARY_HORIZON)
-    if primary_key in indicator_probs:
-        primary_probs = indicator_probs[primary_key]
-        for col in primary_probs.columns:
-            dataset[f'PROB_{col}'] = primary_probs[col]
-
-    # Add aggregate crash probabilities
-    for col in aggregate_probs.columns:
-        dataset[col] = aggregate_probs[col]
-
-    # Add miss flags
     for col in miss_flags.columns:
         dataset[col] = miss_flags[col]
 
-    # Add forward returns from backtest
-    if bt is not None:
-        for col in bt.columns:
-            if col.startswith('FWD_') and col not in dataset.columns:
-                dataset[col] = bt[col]
+    # Forward returns for heatmap context
+    if sp500 is not None:
+        sp_daily = sp500.reindex(dataset.index, method='ffill')
+        for label, days in HORIZONS.items():
+            fwd = sp_daily.shift(-days) / sp_daily - 1
+            dataset[f'FWD_{label}'] = fwd * 100
+        # Forward max drawdown (6M)
+        fwd_dd = compute_forward_max_drawdown(sp500, HORIZONS['6M'], dataset.index)
+        dataset['FWD_MAX_DD_6M'] = fwd_dd
 
     csv_path = output_dir / 'crash_index_dataset.csv'
     dataset.to_csv(csv_path, float_format='%.4f')
@@ -1602,48 +1571,26 @@ def main():
     except Exception:
         pass
 
-    # 8. Create charts
-    create_charts(bt, sp500, output_dir)
-
-    # 9. Print current readings
+    # 6. Print current readings
     print("\n" + "="*70)
-    print("CURRENT CRASH PROBABILITY READINGS")
+    print("CURRENT PERCENTILE RANKS")
     print("="*70)
     latest = dataset.iloc[-1]
     print(f"\nDate: {dataset.index[-1].date()}")
 
-    primary_tag = f'{PRIMARY_THRESHOLD}pct_{PRIMARY_HORIZON}'
-    for agg in ['P90', 'P75', 'MEDIAN', 'MEAN']:
-        col = f'CRASH_PROB_{agg}_{primary_tag}'
-        if col in dataset.columns:
-            val = latest.get(col, np.nan)
-            if not pd.isna(val):
-                print(f"  P(DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}) [{agg}]: {val:.1%}")
+    pct_cols = sorted([c for c in dataset.columns if c.startswith('PCT_')],
+                      key=lambda c: latest.get(c, 0), reverse=True)
+    print(f"\nTop 10 indicators by percentile rank:")
+    for col in pct_cols[:10]:
+        ind_name = col.replace('PCT_', '')
+        print(f"  {ind_name:30s}  {latest[col]:.0f}th percentile")
+    print(f"\nBottom 10 indicators:")
+    for col in pct_cols[-10:]:
+        ind_name = col.replace('PCT_', '')
+        print(f"  {ind_name:30s}  {latest[col]:.0f}th percentile")
 
-    print(f"\nAll crash definitions (P90 P(crash)):")
-    for h_name in HORIZONS:
-        for threshold in CRASH_THRESHOLDS:
-            tag = f'{threshold}pct_{h_name}'
-            col = f'CRASH_PROB_P90_{tag}'
-            if col in dataset.columns:
-                val = latest.get(col, np.nan)
-                if not pd.isna(val):
-                    print(f"  DD>{threshold}% in {h_name}: {val:.1%}")
-
-    # Per-indicator probabilities for primary definition
-    prob_cols = [c for c in dataset.columns if c.startswith('PROB_')]
-    if prob_cols:
-        print(f"\nTop 10 indicators by P(crash) [DD>{PRIMARY_THRESHOLD}% in {PRIMARY_HORIZON}]:")
-        current_probs = latest[prob_cols].dropna().sort_values(ascending=False).head(10)
-        for col in current_probs.index:
-            ind_name = col.replace('PROB_', '')
-            print(f"  {ind_name:30s}  P(crash)={current_probs[col]:.1%}")
-
-        print(f"\nBottom 10 indicators:")
-        current_low = latest[prob_cols].dropna().sort_values().head(10)
-        for col in current_low.index:
-            ind_name = col.replace('PROB_', '')
-            print(f"  {ind_name:30s}  P(crash)={current_low[col]:.1%}")
+    median_pct = np.nanmedian([latest[c] for c in pct_cols if not pd.isna(latest.get(c))])
+    print(f"\nMedian percentile across all indicators: {median_pct:.0f}")
 
     # 10. Emit build metadata
     import json as _json

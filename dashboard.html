@@ -346,7 +346,7 @@
 <div id="staleness-banner" class="staleness-banner"></div>
 
 <div class="header">
-  <h1>MARKET CRASH PROBABILITY</h1>
+  <h1>MARKET CRASH RISK DASHBOARD</h1>
   <div class="subtitle">Logistic regression ensemble | Updated <span id="update-date">--</span>
     <button id="refresh-btn" onclick="triggerRefresh()"
        style="margin-left:12px; padding:3px 10px; background:#444; color:#0f0; border:1px solid #555;
@@ -393,7 +393,7 @@
         </svg>
         <div class="gauge-label">
           <div id="gauge-value" class="gauge-value">--</div>
-          <div class="gauge-text">P(CRASH)</div>
+          <div class="gauge-text">PERCENTILE</div>
           <div id="gauge-status" class="gauge-status">--</div>
         </div>
       </div>
@@ -403,15 +403,15 @@
           <span id="crash-def" class="meta-value">--</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">90th pctl P(crash)</span>
+          <span class="meta-label">90th pctl</span>
           <span id="prob-p90" class="meta-value">--</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">75th pctl P(crash)</span>
+          <span class="meta-label">75th pctl</span>
           <span id="prob-p75" class="meta-value">--</span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">Median P(crash)</span>
+          <span class="meta-label">Median pctl</span>
           <span id="prob-median" class="meta-value">--</span>
         </div>
         <div class="meta-row">
@@ -431,19 +431,19 @@
 
     <!-- Secondary crash probabilities -->
     <div class="secondary-section">
-      <div class="section-title">Crash Probabilities by Definition</div>
+      <div class="section-title">Percentile Summary</div>
       <div id="sec-grid" class="sec-grid"></div>
     </div>
 
     <!-- Category scores -->
     <div class="categories-section">
-      <div class="section-title">Category Breakdown (Median P(crash))</div>
+      <div class="section-title">Category Breakdown (Median pctl)</div>
       <div id="cat-grid" class="cat-grid"></div>
     </div>
 
     <!-- Historical chart -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Crash Probability History</div>
+      <div class="section-title" style="margin-bottom:12px">Median Percentile History</div>
       <div class="chart-container">
         <canvas id="history-chart"></canvas>
       </div>
@@ -451,13 +451,13 @@
 
     <!-- Heatmap: realized drawdown + per-indicator crash probs -->
     <div class="chart-section">
-      <div class="section-title" style="margin-bottom:12px">Indicator Crash Probabilities vs Realized Outcomes</div>
+      <div class="section-title" style="margin-bottom:12px">Indicator Percentile Ranks vs Realized Outcomes</div>
       <div id="heatmap-container" style="overflow-x:auto;"></div>
     </div>
 
     <!-- Individual indicators -->
     <div class="indicators-section">
-      <div class="section-title">Per-Indicator Crash Probability</div>
+      <div class="section-title">Per-Indicator Percentile Rank</div>
       <div id="indicators-container"></div>
     </div>
 
@@ -465,7 +465,7 @@
 </div>
 
 <div class="footer">
-  Market Crash Probability Model | For research purposes only | Not financial advice
+  Market Crash Risk Dashboard | For research purposes only | Not financial advice
 </div>
 
 <script>
@@ -717,7 +717,7 @@ function renderChart(history) {
           mode: 'index',
           intersect: false,
           callbacks: {
-            label: (ctx) => ctx.datasetIndex === 0 ? `P(crash): ${ctx.parsed.y.toFixed(1)}%` : '',
+            label: (ctx) => ctx.datasetIndex === 0 ? `Percentile: ${ctx.parsed.y.toFixed(1)}%` : '',
             title: (items) => items[0]?.label || '',
           },
           filter: (item) => item.datasetIndex === 0,
@@ -852,7 +852,7 @@ function renderHeatmap(heatmap) {
       const val = ind.values[i];
       const color = val === null || val === undefined ? nullColor : pctColor(val);
       svg += `<rect x="${labelW + i * cellW}" y="${y}" width="${cellW}" height="${cellH}" fill="${color}" rx="1">`;
-      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? 'P(crash): ' + val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
+      svg += `<title>${ind.name}\n${dates[i]}: ${val !== null && val !== undefined ? 'Percentile: ' + val.toFixed(1) + '%' : 'N/A'}</title></rect>`;
     }
     y += cellH + 1;
   }
@@ -877,7 +877,7 @@ function renderHeatmap(heatmap) {
   // P(crash) legend
   const pctLegend = [['< 5%', pctColor(2.5)], ['5-10%', pctColor(7.5)], ['10-20%', pctColor(15)],
     ['20-30%', pctColor(25)], ['30-45%', pctColor(37)], ['45%+', pctColor(52)], ['No data', nullColor]];
-  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">P(crash):</text>`;
+  svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">Percentile:</text>`;
   let lx = labelW + 65;
   for (const [label, color] of pctLegend) {
     svg += `<rect x="${lx}" y="${legendY}" width="14" height="14" fill="${color}" rx="2" stroke="#333" stroke-width="0.5"/>`;
