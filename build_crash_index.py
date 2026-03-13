@@ -857,24 +857,19 @@ def compute_indicators(fred_df, yf_df, ebp_df, margin_debt=None,
             indicators['CAPE'] = cape_daily
             print(f"  [OK] Shiller CAPE (raw, no real yield for ECY): {len(cape_series.dropna())} monthly obs")
 
-    # --- FINRA Margin Debt as % of Total Market Cap ---
-    # Practitioner standard: margin debt / Wilshire 5000 market cap * 100
-    # Historical range ~1.3% (trough) to ~2.9% (peak)
+    # --- FINRA Margin Debt as % of M2 Money Supply ---
+    # Practitioner standard: margin debt / M2 * 100
+    # Normalizes for money supply growth over time
     if margin_debt is not None and len(margin_debt.dropna()) > 0:
         md = to_daily(margin_debt) / 1000  # $M -> $B
-        # Get Wilshire 5000 as market cap proxy
-        wilshire_for_md = None
-        if 'WILL5000' in fred_df.columns and fred_df['WILL5000'].dropna().shape[0] > 100:
-            wilshire_for_md = to_daily(fred_df['WILL5000'])
-        elif 'WILSHIRE' in yf_df.columns:
-            wilshire_for_md = to_daily(yf_df['WILSHIRE'])
-        if wilshire_for_md is not None:
-            indicators['MARGIN_DEBT'] = md / wilshire_for_md * 100  # % of market cap
-            print("  [OK] Margin Debt (% of market cap)")
+        if 'M2' in fred_df.columns and fred_df['M2'].dropna().shape[0] > 100:
+            m2 = to_daily(fred_df['M2'])
+            indicators['MARGIN_DEBT'] = md / m2 * 100  # % of M2
+            print("  [OK] Margin Debt (% of M2 money supply)")
         else:
             indicators['MARGIN_DEBT'] = md  # fallback: raw $B
-            print("  [OK] Margin Debt (raw $B, no Wilshire for normalization)")
-        # YoY growth of raw margin debt (standard practitioner measure)
+            print("  [OK] Margin Debt (raw $B, no M2 for normalization)")
+        # YoY growth of raw margin debt
         md_raw = margin_debt.dropna()
         md_yoy_raw = md_raw.pct_change(12) * 100  # 12 monthly obs
         indicators['MARGIN_DEBT_YOY'] = to_daily(md_yoy_raw)

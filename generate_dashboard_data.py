@@ -352,11 +352,11 @@ def generate_dashboard_data(data_dir=None):
             'direction': 'Higher = more crowded into stocks = danger',
         },
         'MARGIN_DEBT': {
-            'what': 'FINRA margin debt as a percentage of total US stock market capitalization (Wilshire 5000). Normalizes for market growth over time. Historical range: ~1.3% (troughs) to ~2.9% (peaks).',
-            'calc': 'Margin Debt % = (FINRA Debit Balances in $B) / (Wilshire 5000 market cap in $B) * 100.',
-            'source': 'FINRA margin statistics (monthly), Wilshire 5000 (FRED: WILL5000IND)',
-            'thresholds': {'green': '< 1.8%', 'yellow': '2.0-2.5%', 'red': '> 2.5%'},
-            'direction': 'Higher = more speculative leverage relative to market size = danger',
+            'what': 'FINRA margin debt as a percentage of M2 money supply. Normalizes for monetary expansion over time, showing how much speculative leverage exists relative to the money in circulation.',
+            'calc': 'Margin Debt % = (FINRA Debit Balances in $B) / (M2 Money Supply in $B) * 100.',
+            'source': 'FINRA margin statistics (monthly), M2 (FRED: M2SL)',
+            'thresholds': {'green': 'Below average', 'yellow': 'Above average', 'red': 'Near highs'},
+            'direction': 'Higher = more speculative leverage relative to money supply = danger',
         },
         'MARGIN_DEBT_YOY': {
             'what': 'Year-over-year growth in raw FINRA margin debt (debit balances). Rapid leverage growth signals accelerating speculation. Sharp declines can signal forced deleveraging.',
