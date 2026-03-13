@@ -361,7 +361,32 @@ def download_insider_selling():
 
 
 def download_shiller_cape():
-    """Download Shiller CAPE (PE10) from Robert Shiller's website. Monthly, from 1881."""
+    """Download Shiller CAPE (PE10). Primary: multpl.com (current). Fallback: Shiller's Excel (stale since 2023)."""
+    # --- Primary source: multpl.com (monthly, current data) ---
+    try:
+        url = 'https://www.multpl.com/shiller-pe/table/by-month'
+        r = requests.get(url, timeout=30,
+                         headers={'User-Agent': 'Mozilla/5.0 (research)'})
+        r.raise_for_status()
+        dfs = pd.read_html(io.StringIO(r.text))
+        if dfs and len(dfs[0]) > 100:
+            df = dfs[0]
+            df['date'] = pd.to_datetime(df['Date'], format='mixed')
+            df = df.dropna(subset=['date'])
+            cape = pd.to_numeric(df['Value'], errors='coerce')
+            cape.index = df['date']
+            cape = cape.dropna().sort_index()
+            cape = cape[~cape.index.duplicated(keep='last')]
+            cape.name = 'CAPE'
+            cape = cape[cape > 0]
+            print(f"  [OK] Shiller CAPE (multpl.com): {len(cape)} obs, "
+                  f"range {cape.index[0].date()} to {cape.index[-1].date()}, "
+                  f"latest={cape.iloc[-1]:.1f}")
+            return cape
+    except Exception as e:
+        print(f"  [WARN] multpl.com failed: {e}, trying Shiller Excel...")
+
+    # --- Fallback: Shiller's Excel (stale since Sep 2023) ---
     try:
         url = 'http://www.econ.yale.edu/~shiller/data/ie_data.xls'
         r = requests.get(url, timeout=30,
@@ -369,17 +394,14 @@ def download_shiller_cape():
         r.raise_for_status()
         df = pd.read_excel(io.BytesIO(r.content), sheet_name='Data',
                            skiprows=7, header=0)
-        # The 'Date' column is like 2024.01 (year.month as float)
         date_col = df.columns[0]
-        cape_col = 'CAPE'  # column name for CAPE ratio
+        cape_col = 'CAPE'
         if cape_col not in df.columns:
-            # Try to find it — sometimes labeled 'Cyclically Adjusted P/E' or last column
             for c in df.columns:
-                if 'cape' in str(c).lower() or 'p/e10' in str(c).lower() or 'pe10' in str(c).lower():
+                if 'cape' in str(c).lower() or 'pe10' in str(c).lower():
                     cape_col = c
                     break
         df = df[[date_col, cape_col]].dropna()
-        # Convert float date to datetime
         dates = []
         for d in df[date_col]:
             try:
@@ -392,10 +414,10 @@ def download_shiller_cape():
         df.index = dates
         cape = pd.to_numeric(df[cape_col], errors='coerce')
         cape = cape[cape.index.notna()].sort_index()
-        cape = cape[~cape.index.duplicated(keep='last')]  # remove duplicate dates
+        cape = cape[~cape.index.duplicated(keep='last')]
         cape.name = 'CAPE'
-        cape = cape[cape > 0]  # remove any zeros/negatives
-        print(f"  [OK] Shiller CAPE: {len(cape.dropna())} obs, "
+        cape = cape[cape > 0]
+        print(f"  [OK] Shiller CAPE (Yale Excel): {len(cape.dropna())} obs, "
               f"range {cape.index[0].date()} to {cape.index[-1].date()}, "
               f"latest={cape.dropna().iloc[-1]:.1f}")
         return cape
