@@ -610,62 +610,50 @@ function renderCategories(catScores) {
 }
 
 function renderIndicators(indicators) {
-  const groups = {};
-  indicators.forEach(ind => {
-    if (!groups[ind.category]) groups[ind.category] = [];
-    groups[ind.category].push(ind);
-  });
-
+  // Indicators arrive pre-sorted by |crash_corr| from JSON
   const container = document.getElementById('indicators-container');
   let html = '';
-
-  const catOrder = Object.entries(groups)
-    .map(([cat, inds]) => [cat, Math.max(...inds.map(i => i.crash_prob))])
-    .sort((a, b) => b[1] - a[1]);
-
-  for (const [cat] of catOrder) {
-    const inds = groups[cat].sort((a, b) => b.crash_prob - a.crash_prob);
-    html += `<div class="category-group">`;
-    html += `<div class="category-header">${cat}</div>`;
-    html += `<div class="ind-grid">`;
-    for (const ind of inds) {
-      const cls = probClass(ind.crash_prob);
-      const rawStr = formatRaw(ind.raw_value);
-      const barW = Math.min(ind.crash_prob, 100);
-      const hasDetail = ind.what || ind.calc;
-      const thr = ind.thresholds || {};
-      let detailHtml = '';
-      if (hasDetail) {
-        detailHtml = '<div class="ind-detail">';
-        if (ind.what) detailHtml += `<p><span class="detail-label">What it is:</span> ${ind.what}</p>`;
-        if (ind.calc) detailHtml += `<p><span class="detail-label">Calculation:</span> ${ind.calc}</p>`;
-        if (ind.source) detailHtml += `<p><span class="detail-label">Source:</span> ${ind.source}</p>`;
-        if (ind.direction) detailHtml += `<p><span class="detail-label">Direction:</span> ${ind.direction}</p>`;
-        if (thr.green || thr.yellow || thr.red) {
-          detailHtml += '<div class="thresholds-row">';
-          if (thr.green) detailHtml += `<span class="thresh thresh-green">${thr.green}</span>`;
-          if (thr.yellow) detailHtml += `<span class="thresh thresh-yellow">${thr.yellow}</span>`;
-          if (thr.red) detailHtml += `<span class="thresh thresh-red">${thr.red}</span>`;
-          detailHtml += '</div>';
-        }
+  html += `<div class="ind-grid">`;
+  for (const ind of indicators) {
+    const cls = probClass(ind.crash_prob);
+    const rawStr = formatRaw(ind.raw_value);
+    const barW = Math.min(ind.crash_prob, 100);
+    const corr = ind.crash_corr !== undefined ? ind.crash_corr : 0;
+    const corrStr = (corr >= 0 ? '+' : '') + corr.toFixed(3);
+    const corrColor = Math.abs(corr) > 0.2 ? '#4fc3f7' : Math.abs(corr) > 0.1 ? '#6b7b8d' : '#4a5568';
+    const hasDetail = ind.what || ind.calc;
+    const thr = ind.thresholds || {};
+    let detailHtml = '';
+    if (hasDetail) {
+      detailHtml = '<div class="ind-detail">';
+      if (ind.what) detailHtml += `<p><span class="detail-label">What it is:</span> ${ind.what}</p>`;
+      if (ind.calc) detailHtml += `<p><span class="detail-label">Calculation:</span> ${ind.calc}</p>`;
+      if (ind.source) detailHtml += `<p><span class="detail-label">Source:</span> ${ind.source}</p>`;
+      if (ind.direction) detailHtml += `<p><span class="detail-label">Direction:</span> ${ind.direction}</p>`;
+      if (thr.green || thr.yellow || thr.red) {
+        detailHtml += '<div class="thresholds-row">';
+        if (thr.green) detailHtml += `<span class="thresh thresh-green">${thr.green}</span>`;
+        if (thr.yellow) detailHtml += `<span class="thresh thresh-yellow">${thr.yellow}</span>`;
+        if (thr.red) detailHtml += `<span class="thresh thresh-red">${thr.red}</span>`;
         detailHtml += '</div>';
       }
-      html += `
-        <div class="ind-card" onclick="this.classList.toggle('expanded')">
-          <div class="ind-dot bg-${cls} glow-${cls}"></div>
-          <div class="ind-info">
-            <div class="ind-name">${ind.name}${hasDetail ? ' <span style=\"font-size:0.65rem;color:var(--text-dim)\">&#9432;</span>' : ''}</div>
-            <div class="ind-meta">${ind.frequency} | Raw: ${rawStr} | Updated: ${ind.last_update}</div>
-          </div>
-          <div class="ind-bar-outer">
-            <div class="ind-bar-inner bg-${cls}" style="width:${barW}%"></div>
-          </div>
-          <div class="ind-score prob-${cls}">${ind.crash_prob.toFixed(1)}%</div>
-          ${detailHtml}
-        </div>`;
+      detailHtml += '</div>';
     }
-    html += `</div></div>`;
+    html += `
+      <div class="ind-card" onclick="this.classList.toggle('expanded')">
+        <div class="ind-dot bg-${cls} glow-${cls}"></div>
+        <div class="ind-info">
+          <div class="ind-name">${ind.name} <span style="font-size:0.65rem;color:${corrColor}" title="Correlation with 6M crash (DD>10%)">r=${corrStr}</span>${hasDetail ? ' <span style=\"font-size:0.65rem;color:var(--text-dim)\">&#9432;</span>' : ''}</div>
+          <div class="ind-meta">${ind.category} | ${ind.frequency} | Raw: ${rawStr}</div>
+        </div>
+        <div class="ind-bar-outer">
+          <div class="ind-bar-inner bg-${cls}" style="width:${barW}%"></div>
+        </div>
+        <div class="ind-score prob-${cls}">${ind.crash_prob.toFixed(1)}%</div>
+        ${detailHtml}
+      </div>`;
   }
+  html += `</div>`;
   container.innerHTML = html;
 }
 

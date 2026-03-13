@@ -452,6 +452,18 @@ def generate_dashboard_data(data_dir=None):
     # --- Build indicator data (using full-sample percentile ranks) ---
     indicators = []
 
+    # Pre-compute per-indicator correlation with 6M crash binary (DD > 10%)
+    crash_binary = (df['FWD_MAX_DD_6M'] < -PRIMARY_THRESHOLD).astype(float) \
+                   if 'FWD_MAX_DD_6M' in df.columns else None
+    ind_corrs = {}
+    if crash_binary is not None:
+        for c in df.columns:
+            if c.startswith('PCT_'):
+                name = c.replace('PCT_', '')
+                r = df[c].corr(crash_binary)
+                if not np.isnan(r):
+                    ind_corrs[name] = round(r, 4)
+
     for cat_name, cat_indicators in CATEGORIES.items():
         for ind_name in cat_indicators:
             pct_col = f'PCT_{ind_name}'
@@ -483,6 +495,7 @@ def generate_dashboard_data(data_dir=None):
                 'category': cat_name,
                 'crash_prob': round(float(pct_rank), 1),  # percentile rank (0-100)
                 'raw_value': round(float(raw), 4) if not pd.isna(raw) else None,
+                'crash_corr': ind_corrs.get(ind_name, 0),  # correlation with 6M crash
                 'frequency': FREQUENCY.get(ind_name, 'Unknown'),
                 'last_update': last_update,
                 'what': desc.get('what', ''),
@@ -491,6 +504,9 @@ def generate_dashboard_data(data_dir=None):
                 'thresholds': desc.get('thresholds', {}),
                 'direction': desc.get('direction', ''),
             })
+
+    # Sort indicators by absolute crash correlation (most predictive first)
+    indicators.sort(key=lambda x: abs(x.get('crash_corr', 0)), reverse=True)
 
     # --- Aggregate percentile stats across indicators ---
     pct_cols = [c for c in df.columns if c.startswith('PCT_')]
