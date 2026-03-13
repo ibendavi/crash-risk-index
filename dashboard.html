@@ -518,29 +518,29 @@ async function triggerRefresh() {
   }
 }
 
-// Probability-based color thresholds
+// Percentile-based color thresholds (symmetric around 50th)
 function probClass(pct) {
-  if (pct < 10) return 'low';
-  if (pct < 25) return 'med';
-  if (pct < 40) return 'high';
+  if (pct < 25) return 'low';
+  if (pct < 50) return 'med';
+  if (pct < 75) return 'high';
   return 'extreme';
 }
 
 function probColor(pct) {
-  if (pct < 10) return '#00c853';
-  if (pct < 25) return '#ffd600';
-  if (pct < 40) return '#ff9100';
+  if (pct < 25) return '#00c853';
+  if (pct < 50) return '#ffd600';
+  if (pct < 75) return '#ff9100';
   return '#ff1744';
 }
 
 function statusText(pct) {
-  if (pct < 5) return 'VERY LOW';
-  if (pct < 10) return 'LOW';
-  if (pct < 15) return 'MODERATE';
-  if (pct < 25) return 'ELEVATED';
-  if (pct < 40) return 'HIGH';
-  if (pct < 60) return 'SEVERE';
-  return 'EXTREME';
+  if (pct < 10) return 'VERY LOW';
+  if (pct < 25) return 'LOW';
+  if (pct < 40) return 'BELOW AVG';
+  if (pct < 60) return 'AVERAGE';
+  if (pct < 75) return 'ABOVE AVG';
+  if (pct < 90) return 'HIGH';
+  return 'VERY HIGH';
 }
 
 function formatRaw(val) {
@@ -754,20 +754,25 @@ function renderHeatmap(heatmap) {
 
   const labelEvery = Math.max(1, Math.floor(dates.length / 25));
 
-  // Crash probability color: green (low P(crash)) -> yellow -> orange -> red (high)
-  // Tuned for crash probs: most values 5-40%, saturate at 60%+
+  // Percentile rank color: green (low) -> yellow (50th) -> red (high)
+  // Symmetric around 50th percentile
   function pctColor(val) {
     if (val === null || val === undefined) return 'none';
-    const t = Math.min(val / 60, 1);  // saturate at 60% P(crash)
-    if (t < 0.25) {
-      const s = t / 0.25;
-      return `rgb(${Math.round(34+s*196)},${Math.round(180+s*20)},${Math.round(34-s*34)})`;
-    } else if (t < 0.5) {
-      const s = (t - 0.25) / 0.25;
-      return `rgb(${Math.round(230+s*10)},${Math.round(200-s*100)},0)`;
+    const t = val / 100;  // 0-1 scale
+    if (t < 0.5) {
+      // Green (0th) -> Yellow (50th)
+      const s = t / 0.5;
+      const r = Math.round(34 + s * 196);   // 34 -> 230
+      const g = Math.round(180 + s * 20);   // 180 -> 200
+      const b = Math.round(34 - s * 34);    // 34 -> 0
+      return `rgb(${r},${g},${b})`;
     } else {
+      // Yellow (50th) -> Red (100th)
       const s = (t - 0.5) / 0.5;
-      return `rgb(${Math.round(240+s*15)},${Math.round(100-s*100)},${Math.round(s*30)})`;
+      const r = Math.round(230 + s * 25);   // 230 -> 255
+      const g = Math.round(200 - s * 180);  // 200 -> 20
+      const b = Math.round(s * 20);         // 0 -> 20
+      return `rgb(${r},${g},${b})`;
     }
   }
 
@@ -874,9 +879,10 @@ function renderHeatmap(heatmap) {
 
   // Legends
   const legendY = labelY + 18;
-  // P(crash) legend
-  const pctLegend = [['< 5%', pctColor(2.5)], ['5-10%', pctColor(7.5)], ['10-20%', pctColor(15)],
-    ['20-30%', pctColor(25)], ['30-45%', pctColor(37)], ['45%+', pctColor(52)], ['No data', nullColor]];
+  // Percentile legend
+  const pctLegend = [['0-10', pctColor(5)], ['10-25', pctColor(17)], ['25-40', pctColor(32)],
+    ['40-60', pctColor(50)], ['60-75', pctColor(67)], ['75-90', pctColor(82)],
+    ['90-100', pctColor(95)], ['N/A', nullColor]];
   svg += `<text x="${labelW}" y="${legendY + 10}" fill="#8a9ab5" font-size="10">Percentile:</text>`;
   let lx = labelW + 65;
   for (const [label, color] of pctLegend) {
