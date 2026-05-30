@@ -1,30 +1,30 @@
 {
-  "generated_at": "2026-05-29 00:28",
+  "generated_at": "2026-05-30 00:26",
   "latest_date": "2026-05-29",
-  "weighted_agg": 25.0,
-  "crash_prob_median": 30.7,
-  "crash_prob_mean": 29.2,
-  "crash_prob_p75": 36.0,
-  "crash_prob_p90": 60.4,
+  "weighted_agg": 24.4,
+  "crash_prob_median": 30.5,
+  "crash_prob_mean": 28.7,
+  "crash_prob_p75": 36.5,
+  "crash_prob_p90": 56.9,
   "primary_definition": "Correlation-weighted aggregate percentile",
   "n_models": 20,
   "category_scores": {
-    "Volatility": 34.9,
+    "Volatility": 34.8,
     "Credit": 29.2,
-    "Market Technicals": 14.4,
+    "Market Technicals": 13.5,
     "Valuation / Positioning": 8.3,
-    "Cross-Asset": 32.3
+    "Cross-Asset": 31.8
   },
   "indicators": [
     {
       "id": "VIX",
       "name": "VIX (Fear Index)",
       "category": "Volatility",
-      "crash_prob": 37.1,
-      "raw_value": 15.74,
+      "crash_prob": 34.3,
+      "raw_value": 15.32,
       "crash_corr": 0.2322,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The CBOE Volatility Index measures the market's expectation of 30-day S&P 500 volatility, derived from option prices. Often called the \"fear gauge.\"",
       "calc": "Model-free variance swap formula aggregating prices of OTM S&P 500 puts and calls across two expiration dates bracketing 30 days: VIX = 100 * sqrt((2/T) * sum[(dK/K^2) * e^(rT) * Q(K)] - (1/T)*(F/K0 - 1)^2)",
       "source": "CBOE (FRED: VIXCLS)",
@@ -39,8 +39,8 @@
       "id": "SP500_VS_200DMA_INV",
       "name": "S&P 500 vs 200-DMA",
       "category": "Market Technicals",
-      "crash_prob": 14.4,
-      "raw_value": 10.4539,
+      "crash_prob": 13.5,
+      "raw_value": 10.6925,
       "crash_corr": 0.2279,
       "frequency": "Daily",
       "last_update": "2026-05-29",
@@ -115,11 +115,11 @@
       "id": "GOLD_SP_RATIO",
       "name": "Gold / S&P 500 Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 32.3,
-      "raw_value": 0.5987,
+      "crash_prob": 31.8,
+      "raw_value": 0.6029,
       "crash_corr": 0.1614,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The ratio of gold price to S&P 500. Rising ratio signals flight from risk assets to safe havens. Gold outperforms equities during stress periods.",
       "calc": "Gold/SPX Ratio = Gold Futures Price / S&P 500 Index Level.",
       "source": "Gold futures (yfinance: GC=F), S&P 500 (yfinance: ^GSPC)",
@@ -134,8 +134,8 @@
       "id": "REALIZED_VOL",
       "name": "Realized Volatility (21d)",
       "category": "Volatility",
-      "crash_prob": 34.5,
-      "raw_value": 9.8875,
+      "crash_prob": 34.3,
+      "raw_value": 9.8528,
       "crash_corr": 0.1429,
       "frequency": "Daily",
       "last_update": "2026-05-29",
@@ -191,11 +191,11 @@
       "id": "RSI_14",
       "name": "RSI (14-day)",
       "category": "Market Technicals",
-      "crash_prob": 6.0,
-      "raw_value": 73.197,
+      "crash_prob": 5.0,
+      "raw_value": 74.0428,
       "crash_corr": 0.1192,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The Relative Strength Index (14-day), a momentum oscillator measuring the speed and magnitude of recent price changes. Above 70 = overbought (vulnerable to correction), below 30 = oversold.",
       "calc": "RSI = 100 - 100/(1+RS), where RS = EMA(gains, 14) / EMA(losses, 14). Uses Wilder's smoothing (alpha = 1/14).",
       "source": "Derived from S&P 500 daily closes",
@@ -210,7 +210,7 @@
       "id": "CU_AU_RATIO_INV",
       "name": "Copper / Gold Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 4.3,
+      "crash_prob": 3.9,
       "raw_value": 0.0014,
       "crash_corr": 0.1138,
       "frequency": "Daily",
@@ -229,11 +229,11 @@
       "id": "DXY",
       "name": "US Dollar Index",
       "category": "Cross-Asset",
-      "crash_prob": 61.6,
-      "raw_value": 98.985,
+      "crash_prob": 61.5,
+      "raw_value": 98.942,
       "crash_corr": 0.1062,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The US Dollar Index measures the value of the dollar against a basket of 6 major currencies (EUR 57.6%, JPY 13.6%, GBP 11.9%, CAD 9.1%, SEK 4.2%, CHF 3.6%). A strong dollar tightens global financial conditions.",
       "calc": "Geometric weighted average of USD exchange rates vs. 6 currencies: DXY = 50.14348112 * prod(FX_i ^ w_i). Base March 1973 = 100.",
       "source": "ICE Futures (yfinance: DX-Y.NYB)",
@@ -267,11 +267,11 @@
       "id": "VVIX",
       "name": "VVIX (Vol of VIX)",
       "category": "Volatility",
-      "crash_prob": 35.2,
-      "raw_value": 86.03,
+      "crash_prob": 35.3,
+      "raw_value": 86.06,
       "crash_corr": 0.0377,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The CBOE VVIX measures the expected volatility of the VIX itself -- the \"volatility of volatility.\" Spikes when options markets are uncertain about future fear levels.",
       "calc": "Same model-free variance swap methodology as VIX, but applied to VIX options instead of S&P 500 options.",
       "source": "CBOE (yfinance: ^VVIX)",
@@ -286,8 +286,8 @@
       "id": "VRP_INV",
       "name": "Variance Risk Premium",
       "category": "Volatility",
-      "crash_prob": 60.3,
-      "raw_value": 149.9843,
+      "crash_prob": 56.4,
+      "raw_value": 137.6244,
       "crash_corr": 0.0368,
       "frequency": "Daily",
       "last_update": "2026-05-29",
@@ -305,8 +305,8 @@
       "id": "VIX_RV_SPREAD_INV",
       "name": "VIX-Realized Vol Spread",
       "category": "Volatility",
-      "crash_prob": 34.3,
-      "raw_value": 5.8525,
+      "crash_prob": 39.0,
+      "raw_value": 5.4672,
       "crash_corr": 0.0221,
       "frequency": "Daily",
       "last_update": "2026-05-29",
@@ -343,11 +343,11 @@
       "id": "SKEW",
       "name": "CBOE SKEW Index",
       "category": "Volatility",
-      "crash_prob": 10.9,
-      "raw_value": 139.52,
+      "crash_prob": 6.8,
+      "raw_value": 144.18,
       "crash_corr": 0.0178,
       "frequency": "Daily",
-      "last_update": "2026-05-28",
+      "last_update": "2026-05-29",
       "what": "The CBOE SKEW Index measures perceived tail risk by quantifying the skewness of S&P 500 returns implied by option prices. Higher values mean the market prices a greater probability of extreme left-tail moves.",
       "calc": "SKEW = 100 - 10 * S, where S is the implied third moment (skewness) extracted from OTM option prices. Baseline of 100 = log-normal returns (no skew).",
       "source": "CBOE (yfinance: ^SKEW)",
@@ -2501,7 +2501,7 @@
     },
     {
       "date": "2004-03-01",
-      "value": 31.0
+      "value": 31.01
     },
     {
       "date": "2004-04-01",
@@ -2521,7 +2521,7 @@
     },
     {
       "date": "2004-08-01",
-      "value": 47.92
+      "value": 47.93
     },
     {
       "date": "2004-09-01",
@@ -3745,7 +3745,7 @@
     },
     {
       "date": "2021-10-22",
-      "value": 37.1
+      "value": 37.11
     },
     {
       "date": "2021-10-25",
@@ -4173,7 +4173,7 @@
     },
     {
       "date": "2022-03-22",
-      "value": 64.87
+      "value": 64.88
     },
     {
       "date": "2022-03-23",
@@ -4989,7 +4989,7 @@
     },
     {
       "date": "2023-01-02",
-      "value": 66.73
+      "value": 66.74
     },
     {
       "date": "2023-01-03",
@@ -5033,7 +5033,7 @@
     },
     {
       "date": "2023-01-17",
-      "value": 62.19
+      "value": 62.2
     },
     {
       "date": "2023-01-18",
@@ -5933,7 +5933,7 @@
     },
     {
       "date": "2023-11-28",
-      "value": 40.08
+      "value": 40.09
     },
     {
       "date": "2023-11-29",
@@ -6225,7 +6225,7 @@
     },
     {
       "date": "2024-03-08",
-      "value": 33.52
+      "value": 33.53
     },
     {
       "date": "2024-03-11",
@@ -7353,7 +7353,7 @@
     },
     {
       "date": "2025-04-08",
-      "value": 64.25
+      "value": 64.24
     },
     {
       "date": "2025-04-09",
@@ -7413,7 +7413,7 @@
     },
     {
       "date": "2025-04-29",
-      "value": 61.68
+      "value": 61.67
     },
     {
       "date": "2025-04-30",
@@ -7549,7 +7549,7 @@
     },
     {
       "date": "2025-06-16",
-      "value": 46.96
+      "value": 46.95
     },
     {
       "date": "2025-06-17",
@@ -7617,7 +7617,7 @@
     },
     {
       "date": "2025-07-09",
-      "value": 32.66
+      "value": 32.67
     },
     {
       "date": "2025-07-10",
@@ -7677,7 +7677,7 @@
     },
     {
       "date": "2025-07-30",
-      "value": 29.36
+      "value": 29.37
     },
     {
       "date": "2025-07-31",
@@ -7733,7 +7733,7 @@
     },
     {
       "date": "2025-08-19",
-      "value": 33.07
+      "value": 33.08
     },
     {
       "date": "2025-08-20",
@@ -8541,11 +8541,11 @@
     },
     {
       "date": "2026-05-28",
-      "value": 25.39
+      "value": 25.43
     },
     {
       "date": "2026-05-29",
-      "value": 24.98
+      "value": 24.4
     }
   ],
   "median_history": [
@@ -10131,7 +10131,7 @@
     },
     {
       "date": "1992-12-01",
-      "value": 35.95
+      "value": 35.94
     },
     {
       "date": "1993-01-01",
@@ -11915,7 +11915,7 @@
     },
     {
       "date": "2021-10-22",
-      "value": 35.3
+      "value": 35.31
     },
     {
       "date": "2021-10-25",
@@ -11951,7 +11951,7 @@
     },
     {
       "date": "2021-11-04",
-      "value": 28.53
+      "value": 28.54
     },
     {
       "date": "2021-11-05",
@@ -12379,7 +12379,7 @@
     },
     {
       "date": "2022-04-04",
-      "value": 59.91
+      "value": 59.9
     },
     {
       "date": "2022-04-05",
@@ -13295,7 +13295,7 @@
     },
     {
       "date": "2023-02-17",
-      "value": 57.09
+      "value": 57.1
     },
     {
       "date": "2023-02-20",
@@ -13743,7 +13743,7 @@
     },
     {
       "date": "2023-07-25",
-      "value": 37.27
+      "value": 37.26
     },
     {
       "date": "2023-07-26",
@@ -14883,7 +14883,7 @@
     },
     {
       "date": "2024-08-27",
-      "value": 35.3
+      "value": 35.31
     },
     {
       "date": "2024-08-28",
@@ -14963,15 +14963,15 @@
     },
     {
       "date": "2024-09-24",
-      "value": 35.17
+      "value": 35.18
     },
     {
       "date": "2024-09-25",
-      "value": 35.22
+      "value": 35.23
     },
     {
       "date": "2024-09-26",
-      "value": 35.1
+      "value": 35.11
     },
     {
       "date": "2024-09-27",
@@ -15351,7 +15351,7 @@
     },
     {
       "date": "2025-02-06",
-      "value": 32.69
+      "value": 32.7
     },
     {
       "date": "2025-02-07",
@@ -15383,7 +15383,7 @@
     },
     {
       "date": "2025-02-18",
-      "value": 33.84
+      "value": 33.85
     },
     {
       "date": "2025-02-19",
@@ -15391,7 +15391,7 @@
     },
     {
       "date": "2025-02-20",
-      "value": 36.17
+      "value": 36.18
     },
     {
       "date": "2025-02-21",
@@ -15907,7 +15907,7 @@
     },
     {
       "date": "2025-08-20",
-      "value": 39.17
+      "value": 39.18
     },
     {
       "date": "2025-08-21",
@@ -15995,7 +15995,7 @@
     },
     {
       "date": "2025-09-19",
-      "value": 29.71
+      "value": 29.72
     },
     {
       "date": "2025-09-22",
@@ -16179,7 +16179,7 @@
     },
     {
       "date": "2025-11-24",
-      "value": 40.2
+      "value": 40.19
     },
     {
       "date": "2025-11-25",
@@ -16451,7 +16451,7 @@
     },
     {
       "date": "2026-02-26",
-      "value": 35.31
+      "value": 35.3
     },
     {
       "date": "2026-02-27",
@@ -16551,7 +16551,7 @@
     },
     {
       "date": "2026-04-02",
-      "value": 44.03
+      "value": 44.02
     },
     {
       "date": "2026-04-03",
@@ -16711,25 +16711,25 @@
     },
     {
       "date": "2026-05-28",
-      "value": 30.74
+      "value": 30.97
     },
     {
       "date": "2026-05-29",
-      "value": 30.74
+      "value": 30.52
     }
   ],
   "data_freshness": {
-    "market_data_age_days": 0,
+    "market_data_age_days": 1,
     "is_stale": false,
     "latest_market_date": "2026-05-29",
-    "generated_at_utc": "2026-05-29T00:28:59Z",
+    "generated_at_utc": "2026-05-30T00:26:55Z",
     "stale_sources": [
       "FRED",
       "Shiller_CAPE"
     ]
   },
   "build_metadata": {
-    "build_time": "2026-05-29 00:28:57",
+    "build_time": "2026-05-30 00:26:53",
     "dataset_shape": [
       17326,
       65
@@ -21308,7 +21308,7 @@
           43.7,
           41.3,
           33.6,
-          34.5,
+          34.6,
           31.7,
           15.3,
           41.0,
@@ -21343,7 +21343,7 @@
           28.9,
           21.9,
           15.5,
-          34.7,
+          34.8,
           78.2,
           77.3,
           51.4,
@@ -21400,7 +21400,7 @@
           77.4,
           55.2,
           48.0,
-          36.5,
+          36.6,
           43.5,
           86.6,
           45.0,
@@ -21473,7 +21473,7 @@
           21.5,
           73.8,
           78.1,
-          35.4,
+          35.5,
           21.4,
           36.3,
           18.7,
@@ -23113,7 +23113,7 @@
           45.2,
           23.5,
           17.1,
-          7.6,
+          7.7,
           16.7,
           14.6,
           9.5,
@@ -24781,7 +24781,7 @@
           77.0,
           36.1,
           31.4,
-          59.4,
+          59.5,
           63.1,
           86.1,
           81.6,
@@ -25188,7 +25188,7 @@
           26.4,
           32.4,
           25.1,
-          36.0,
+          35.9,
           44.8,
           43.1,
           82.1,
@@ -25480,7 +25480,7 @@
           30.5,
           31.6,
           27.0,
-          36.1,
+          36.0,
           67.6,
           81.2,
           53.8,
@@ -34364,7 +34364,7 @@
           32.3,
           36.6,
           36.6,
-          32.6,
+          32.5,
           38.9,
           37.6,
           36.2,
