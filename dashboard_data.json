@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-08-28 06:49",
+  "generated_at": "2026-08-29 04:20",
   "latest_date": "2026-08-28",
-  "weighted_agg": 31.2,
+  "weighted_agg": 31.1,
   "crash_prob_median": 32.4,
   "crash_prob_mean": 35.2,
-  "crash_prob_p75": 42.4,
+  "crash_prob_p75": 41.4,
   "crash_prob_p90": 62.1,
   "primary_definition": "Correlation-weighted aggregate percentile",
   "n_models": 21,
   "category_scores": {
-    "Volatility": 34.0,
+    "Volatility": 33.7,
     "Credit": 16.6,
     "Market Technicals": 35.0,
     "Valuation / Positioning": 24.1,
@@ -20,11 +20,11 @@
       "id": "VIX",
       "name": "VIX (Fear Index)",
       "category": "Volatility",
-      "crash_prob": 28.6,
-      "raw_value": 14.51,
+      "crash_prob": 28.0,
+      "raw_value": 14.43,
       "crash_corr": 0.2328,
       "frequency": "Daily",
-      "last_update": "2026-08-27",
+      "last_update": "2026-08-28",
       "what": "The CBOE Volatility Index measures the market's expectation of 30-day S&P 500 volatility, derived from option prices. Often called the \"fear gauge.\"",
       "calc": "Model-free variance swap formula aggregating prices of OTM S&P 500 puts and calls across two expiration dates bracketing 30 days: VIX = 100 * sqrt((2/T) * sum[(dK/K^2) * e^(rT) * Q(K)] - (1/T)*(F/K0 - 1)^2)",
       "source": "CBOE (FRED: VIXCLS)",
@@ -286,8 +286,8 @@
       "id": "VRP_INV",
       "name": "Variance Risk Premium",
       "category": "Volatility",
-      "crash_prob": 42.4,
-      "raw_value": 102.4286,
+      "crash_prob": 41.4,
+      "raw_value": 100.1134,
       "crash_corr": 0.038,
       "frequency": "Daily",
       "last_update": "2026-08-28",
@@ -362,8 +362,8 @@
       "id": "VIX_RV_SPREAD_INV",
       "name": "VIX-Realized Vol Spread",
       "category": "Volatility",
-      "crash_prob": 56.0,
-      "raw_value": 4.1123,
+      "crash_prob": 56.9,
+      "raw_value": 4.0323,
       "crash_corr": 0.0207,
       "frequency": "Daily",
       "last_update": "2026-08-28",
@@ -3116,7 +3116,7 @@
     },
     {
       "date": "2016-08-01",
-      "value": 36.51
+      "value": 36.52
     },
     {
       "date": "2016-09-01",
@@ -5808,7 +5808,7 @@
     },
     {
       "date": "2024-01-03",
-      "value": 40.5
+      "value": 40.49
     },
     {
       "date": "2024-01-04",
@@ -5880,7 +5880,7 @@
     },
     {
       "date": "2024-01-29",
-      "value": 32.08
+      "value": 32.09
     },
     {
       "date": "2024-01-30",
@@ -7916,7 +7916,7 @@
     },
     {
       "date": "2026-01-09",
-      "value": 27.99
+      "value": 28.0
     },
     {
       "date": "2026-01-12",
@@ -8576,7 +8576,7 @@
     },
     {
       "date": "2026-08-28",
-      "value": 31.2
+      "value": 31.13
     }
   ],
   "median_history": [
@@ -10146,7 +10146,7 @@
     },
     {
       "date": "1992-08-01",
-      "value": 40.56
+      "value": 40.57
     },
     {
       "date": "1992-09-01",
@@ -10170,7 +10170,7 @@
     },
     {
       "date": "1993-02-01",
-      "value": 41.33
+      "value": 41.34
     },
     {
       "date": "1993-03-01",
@@ -11910,7 +11910,7 @@
     },
     {
       "date": "2022-01-05",
-      "value": 56.85
+      "value": 56.84
     },
     {
       "date": "2022-01-06",
@@ -13746,7 +13746,7 @@
     },
     {
       "date": "2023-10-10",
-      "value": 56.12
+      "value": 56.11
     },
     {
       "date": "2023-10-11",
@@ -14170,11 +14170,11 @@
     },
     {
       "date": "2024-03-06",
-      "value": 28.49
+      "value": 28.5
     },
     {
       "date": "2024-03-07",
-      "value": 28.05
+      "value": 28.06
     },
     {
       "date": "2024-03-08",
@@ -16098,7 +16098,7 @@
     },
     {
       "date": "2026-01-09",
-      "value": 28.41
+      "value": 28.42
     },
     {
       "date": "2026-01-12",
@@ -16762,16 +16762,16 @@
     }
   ],
   "data_freshness": {
-    "market_data_age_days": 0,
+    "market_data_age_days": 1,
     "is_stale": false,
     "latest_market_date": "2026-08-28",
-    "generated_at_utc": "2026-08-28T06:49:26Z",
+    "generated_at_utc": "2026-08-29T04:20:38Z",
     "stale_sources": [
       "FRED"
     ]
   },
   "build_metadata": {
-    "build_time": "2026-08-28 06:49:24",
+    "build_time": "2026-08-29 04:20:35",
     "dataset_shape": [
       17391,
       70
@@ -21361,7 +21361,7 @@
           45.0,
           54.1,
           47.3,
-          28.0,
+          28.1,
           44.0,
           43.8,
           41.4,
@@ -24450,13 +24450,13 @@
           31.4,
           51.7,
           31.6,
-          42.2,
+          42.3,
           55.0,
           63.2,
           68.0,
           47.7,
+          41.7,
           41.6,
-          41.5,
           16.9,
           26.3,
           35.4,
