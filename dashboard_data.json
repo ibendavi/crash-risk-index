@@ -1,30 +1,30 @@
 {
-  "generated_at": "2026-09-18 01:19",
+  "generated_at": "2026-09-19 01:16",
   "latest_date": "2026-09-18",
-  "weighted_agg": 35.0,
+  "weighted_agg": 34.2,
   "crash_prob_median": 35.0,
-  "crash_prob_mean": 34.3,
-  "crash_prob_p75": 39.9,
-  "crash_prob_p90": 64.7,
+  "crash_prob_mean": 33.8,
+  "crash_prob_p75": 38.7,
+  "crash_prob_p90": 61.7,
   "primary_definition": "Correlation-weighted aggregate percentile",
   "n_models": 21,
   "category_scores": {
-    "Volatility": 32.1,
+    "Volatility": 33.7,
     "Credit": 16.6,
-    "Market Technicals": 35.8,
+    "Market Technicals": 35.7,
     "Valuation / Positioning": 13.5,
-    "Cross-Asset": 35.5
+    "Cross-Asset": 35.4
   },
   "indicators": [
     {
       "id": "VIX",
       "name": "VIX (Fear Index)",
       "category": "Volatility",
-      "crash_prob": 35.0,
-      "raw_value": 15.44,
+      "crash_prob": 30.8,
+      "raw_value": 14.81,
       "crash_corr": 0.2331,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The CBOE Volatility Index measures the market's expectation of 30-day S&P 500 volatility, derived from option prices. Often called the \"fear gauge.\"",
       "calc": "Model-free variance swap formula aggregating prices of OTM S&P 500 puts and calls across two expiration dates bracketing 30 days: VIX = 100 * sqrt((2/T) * sum[(dK/K^2) * e^(rT) * Q(K)] - (1/T)*(F/K0 - 1)^2)",
       "source": "CBOE (FRED: VIXCLS)",
@@ -39,8 +39,8 @@
       "id": "SP500_VS_200DMA_INV",
       "name": "S&P 500 vs 200-DMA",
       "category": "Market Technicals",
-      "crash_prob": 35.8,
-      "raw_value": 6.1388,
+      "crash_prob": 34.5,
+      "raw_value": 6.3149,
       "crash_corr": 0.2287,
       "frequency": "Daily",
       "last_update": "2026-09-18",
@@ -96,11 +96,11 @@
       "id": "DRAWDOWN_1Y",
       "name": "Trailing 1Y Drawdown",
       "category": "Market Technicals",
-      "crash_prob": 39.9,
-      "raw_value": -2.0673,
+      "crash_prob": 38.3,
+      "raw_value": -1.904,
       "crash_corr": 0.1969,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The current S&P 500 drawdown from its trailing 252-day (1-year) high. Measures how far the market has fallen from its recent peak.",
       "calc": "DD = (P_t / max(P_{t-252:t}) - 1) * 100. Always <= 0. Zero = at the 1-year high.",
       "source": "Derived from S&P 500 daily closes",
@@ -115,11 +115,11 @@
       "id": "GOLD_SP_RATIO",
       "name": "Gold / S&P 500 Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 35.5,
-      "raw_value": 0.5762,
+      "crash_prob": 35.4,
+      "raw_value": 0.5772,
       "crash_corr": 0.1641,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The ratio of gold price to S&P 500. Rising ratio signals flight from risk assets to safe havens. Gold outperforms equities during stress periods.",
       "calc": "Gold/SPX Ratio = Gold Futures Price / S&P 500 Index Level.",
       "source": "Gold futures (yfinance: GC=F), S&P 500 (yfinance: ^GSPC)",
@@ -153,8 +153,8 @@
       "id": "REALIZED_VOL",
       "name": "Realized Volatility (21d)",
       "category": "Volatility",
-      "crash_prob": 27.8,
-      "raw_value": 9.1202,
+      "crash_prob": 28.0,
+      "raw_value": 9.1389,
       "crash_corr": 0.1423,
       "frequency": "Daily",
       "last_update": "2026-09-18",
@@ -191,7 +191,7 @@
       "id": "CU_AU_RATIO_INV",
       "name": "Copper / Gold Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 6.4,
+      "crash_prob": 6.8,
       "raw_value": 0.0015,
       "crash_corr": 0.1235,
       "frequency": "Daily",
@@ -210,11 +210,11 @@
       "id": "RSI_14",
       "name": "RSI (14-day)",
       "category": "Market Technicals",
-      "crash_prob": 64.7,
-      "raw_value": 49.3879,
+      "crash_prob": 61.7,
+      "raw_value": 50.5333,
       "crash_corr": 0.1187,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The Relative Strength Index (14-day), a momentum oscillator measuring the speed and magnitude of recent price changes. Above 70 = overbought (vulnerable to correction), below 30 = oversold.",
       "calc": "RSI = 100 - 100/(1+RS), where RS = EMA(gains, 14) / EMA(losses, 14). Uses Wilder's smoothing (alpha = 1/14).",
       "source": "Derived from S&P 500 daily closes",
@@ -230,10 +230,10 @@
       "name": "US Dollar Index",
       "category": "Cross-Asset",
       "crash_prob": 65.8,
-      "raw_value": 100.22,
+      "raw_value": 100.215,
       "crash_corr": 0.1047,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The US Dollar Index measures the value of the dollar against a basket of 6 major currencies (EUR 57.6%, JPY 13.6%, GBP 11.9%, CAD 9.1%, SEK 4.2%, CHF 3.6%). A strong dollar tightens global financial conditions.",
       "calc": "Geometric weighted average of USD exchange rates vs. 6 currencies: DXY = 50.14348112 * prod(FX_i ^ w_i). Base March 1973 = 100.",
       "source": "ICE Futures (yfinance: DX-Y.NYB)",
@@ -286,8 +286,8 @@
       "id": "VRP_INV",
       "name": "Variance Risk Premium",
       "category": "Volatility",
-      "crash_prob": 61.8,
-      "raw_value": 155.2159,
+      "crash_prob": 55.9,
+      "raw_value": 135.8162,
       "crash_corr": 0.0376,
       "frequency": "Daily",
       "last_update": "2026-09-18",
@@ -305,11 +305,11 @@
       "id": "VVIX",
       "name": "VVIX (Vol of VIX)",
       "category": "Volatility",
-      "crash_prob": 39.9,
-      "raw_value": 87.72,
+      "crash_prob": 38.7,
+      "raw_value": 87.38,
       "crash_corr": 0.0369,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The CBOE VVIX measures the expected volatility of the VIX itself -- the \"volatility of volatility.\" Spikes when options markets are uncertain about future fear levels.",
       "calc": "Same model-free variance swap methodology as VIX, but applied to VIX options instead of S&P 500 options.",
       "source": "CBOE (yfinance: ^VVIX)",
@@ -343,11 +343,11 @@
       "id": "SKEW",
       "name": "CBOE SKEW Index",
       "category": "Volatility",
-      "crash_prob": 6.1,
-      "raw_value": 145.7,
+      "crash_prob": 4.7,
+      "raw_value": 148.1,
       "crash_corr": 0.0238,
       "frequency": "Daily",
-      "last_update": "2026-09-17",
+      "last_update": "2026-09-18",
       "what": "The CBOE SKEW Index measures perceived tail risk by quantifying the skewness of S&P 500 returns implied by option prices. Higher values mean the market prices a greater probability of extreme left-tail moves.",
       "calc": "SKEW = 100 - 10 * S, where S is the implied third moment (skewness) extracted from OTM option prices. Baseline of 100 = log-normal returns (no skew).",
       "source": "CBOE (yfinance: ^SKEW)",
@@ -362,8 +362,8 @@
       "id": "VIX_RV_SPREAD_INV",
       "name": "VIX-Realized Vol Spread",
       "category": "Volatility",
-      "crash_prob": 29.2,
-      "raw_value": 6.3198,
+      "crash_prob": 36.6,
+      "raw_value": 5.6711,
       "crash_corr": 0.0213,
       "frequency": "Daily",
       "last_update": "2026-09-18",
@@ -1004,7 +1004,7 @@
     },
     {
       "date": "1972-08-01",
-      "value": 42.86
+      "value": 42.87
     },
     {
       "date": "1972-09-01",
@@ -1348,7 +1348,7 @@
     },
     {
       "date": "1979-10-01",
-      "value": 37.14
+      "value": 37.15
     },
     {
       "date": "1979-11-01",
@@ -3956,7 +3956,7 @@
     },
     {
       "date": "2022-04-14",
-      "value": 63.62
+      "value": 63.61
     },
     {
       "date": "2022-04-15",
@@ -4700,7 +4700,7 @@
     },
     {
       "date": "2022-12-30",
-      "value": 67.42
+      "value": 67.43
     },
     {
       "date": "2023-01-02",
@@ -5452,7 +5452,7 @@
     },
     {
       "date": "2023-09-20",
-      "value": 49.87
+      "value": 49.88
     },
     {
       "date": "2023-09-21",
@@ -5608,7 +5608,7 @@
     },
     {
       "date": "2023-11-14",
-      "value": 46.89
+      "value": 46.9
     },
     {
       "date": "2023-11-15",
@@ -5648,7 +5648,7 @@
     },
     {
       "date": "2023-11-28",
-      "value": 41.4
+      "value": 41.41
     },
     {
       "date": "2023-11-29",
@@ -6444,7 +6444,7 @@
     },
     {
       "date": "2024-09-02",
-      "value": 38.13
+      "value": 38.14
     },
     {
       "date": "2024-09-03",
@@ -6644,7 +6644,7 @@
     },
     {
       "date": "2024-11-11",
-      "value": 31.69
+      "value": 31.7
     },
     {
       "date": "2024-11-12",
@@ -6832,7 +6832,7 @@
     },
     {
       "date": "2025-01-15",
-      "value": 39.59
+      "value": 39.6
     },
     {
       "date": "2025-01-16",
@@ -6860,7 +6860,7 @@
     },
     {
       "date": "2025-01-24",
-      "value": 33.0
+      "value": 33.01
     },
     {
       "date": "2025-01-27",
@@ -6888,7 +6888,7 @@
     },
     {
       "date": "2025-02-04",
-      "value": 37.83
+      "value": 37.82
     },
     {
       "date": "2025-02-05",
@@ -6932,7 +6932,7 @@
     },
     {
       "date": "2025-02-19",
-      "value": 32.6
+      "value": 32.61
     },
     {
       "date": "2025-02-20",
@@ -7800,7 +7800,7 @@
     },
     {
       "date": "2025-12-19",
-      "value": 32.09
+      "value": 32.1
     },
     {
       "date": "2025-12-22",
@@ -8300,7 +8300,7 @@
     },
     {
       "date": "2026-06-12",
-      "value": 35.58
+      "value": 35.57
     },
     {
       "date": "2026-06-15",
@@ -8320,7 +8320,7 @@
     },
     {
       "date": "2026-06-19",
-      "value": 33.86
+      "value": 33.87
     },
     {
       "date": "2026-06-22",
@@ -8328,7 +8328,7 @@
     },
     {
       "date": "2026-06-23",
-      "value": 40.67
+      "value": 40.68
     },
     {
       "date": "2026-06-24",
@@ -8352,7 +8352,7 @@
     },
     {
       "date": "2026-07-01",
-      "value": 35.19
+      "value": 35.2
     },
     {
       "date": "2026-07-02",
@@ -8580,7 +8580,7 @@
     },
     {
       "date": "2026-09-18",
-      "value": 35.04
+      "value": 34.17
     }
   ],
   "median_history": [
@@ -9150,7 +9150,7 @@
     },
     {
       "date": "1971-10-01",
-      "value": 62.29
+      "value": 62.3
     },
     {
       "date": "1971-11-01",
@@ -9190,7 +9190,7 @@
     },
     {
       "date": "1972-08-01",
-      "value": 39.68
+      "value": 39.69
     },
     {
       "date": "1972-09-01",
@@ -9750,7 +9750,7 @@
     },
     {
       "date": "1984-04-01",
-      "value": 67.68
+      "value": 67.69
     },
     {
       "date": "1984-05-01",
@@ -10166,7 +10166,7 @@
     },
     {
       "date": "1992-12-01",
-      "value": 37.54
+      "value": 37.53
     },
     {
       "date": "1993-01-01",
@@ -10738,7 +10738,7 @@
     },
     {
       "date": "2004-11-01",
-      "value": 55.25
+      "value": 55.26
     },
     {
       "date": "2004-12-01",
@@ -11278,7 +11278,7 @@
     },
     {
       "date": "2016-02-01",
-      "value": 63.46
+      "value": 63.47
     },
     {
       "date": "2016-03-01",
@@ -11462,7 +11462,7 @@
     },
     {
       "date": "2019-12-01",
-      "value": 35.72
+      "value": 35.73
     },
     {
       "date": "2020-01-01",
@@ -11642,15 +11642,15 @@
     },
     {
       "date": "2021-10-21",
-      "value": 32.22
+      "value": 32.23
     },
     {
       "date": "2021-10-22",
-      "value": 34.85
+      "value": 34.86
     },
     {
       "date": "2021-10-25",
-      "value": 33.69
+      "value": 33.7
     },
     {
       "date": "2021-10-26",
@@ -12934,11 +12934,11 @@
     },
     {
       "date": "2023-01-17",
-      "value": 59.67
+      "value": 59.68
     },
     {
       "date": "2023-01-18",
-      "value": 59.87
+      "value": 59.88
     },
     {
       "date": "2023-01-19",
@@ -13026,7 +13026,7 @@
     },
     {
       "date": "2023-02-17",
-      "value": 56.81
+      "value": 56.82
     },
     {
       "date": "2023-02-20",
@@ -13322,7 +13322,7 @@
     },
     {
       "date": "2023-06-01",
-      "value": 38.73
+      "value": 38.74
     },
     {
       "date": "2023-06-02",
@@ -13342,7 +13342,7 @@
     },
     {
       "date": "2023-06-08",
-      "value": 39.55
+      "value": 39.57
     },
     {
       "date": "2023-06-09",
@@ -13482,7 +13482,7 @@
     },
     {
       "date": "2023-07-27",
-      "value": 31.31
+      "value": 31.3
     },
     {
       "date": "2023-07-28",
@@ -13490,11 +13490,11 @@
     },
     {
       "date": "2023-07-31",
-      "value": 35.43
+      "value": 35.42
     },
     {
       "date": "2023-08-01",
-      "value": 33.45
+      "value": 33.44
     },
     {
       "date": "2023-08-02",
@@ -13602,7 +13602,7 @@
     },
     {
       "date": "2023-09-07",
-      "value": 39.64
+      "value": 39.66
     },
     {
       "date": "2023-09-08",
@@ -13830,11 +13830,11 @@
     },
     {
       "date": "2023-11-27",
-      "value": 35.47
+      "value": 35.48
     },
     {
       "date": "2023-11-28",
-      "value": 35.2
+      "value": 35.21
     },
     {
       "date": "2023-11-29",
@@ -14130,7 +14130,7 @@
     },
     {
       "date": "2024-03-11",
-      "value": 33.54
+      "value": 33.55
     },
     {
       "date": "2024-03-12",
@@ -14614,7 +14614,7 @@
     },
     {
       "date": "2024-08-27",
-      "value": 34.85
+      "value": 34.86
     },
     {
       "date": "2024-08-28",
@@ -14626,11 +14626,11 @@
     },
     {
       "date": "2024-08-30",
-      "value": 32.16
+      "value": 32.17
     },
     {
       "date": "2024-09-02",
-      "value": 32.16
+      "value": 32.17
     },
     {
       "date": "2024-09-03",
@@ -14694,15 +14694,15 @@
     },
     {
       "date": "2024-09-24",
-      "value": 34.59
+      "value": 34.6
     },
     {
       "date": "2024-09-25",
-      "value": 34.7
+      "value": 34.71
     },
     {
       "date": "2024-09-26",
-      "value": 34.45
+      "value": 34.46
     },
     {
       "date": "2024-09-27",
@@ -14866,7 +14866,7 @@
     },
     {
       "date": "2024-11-22",
-      "value": 33.69
+      "value": 33.7
     },
     {
       "date": "2024-11-25",
@@ -15102,7 +15102,7 @@
     },
     {
       "date": "2025-02-13",
-      "value": 32.79
+      "value": 32.8
     },
     {
       "date": "2025-02-14",
@@ -15514,7 +15514,7 @@
     },
     {
       "date": "2025-07-08",
-      "value": 35.03
+      "value": 35.04
     },
     {
       "date": "2025-07-09",
@@ -15606,7 +15606,7 @@
     },
     {
       "date": "2025-08-08",
-      "value": 33.14
+      "value": 33.15
     },
     {
       "date": "2025-08-11",
@@ -15622,15 +15622,15 @@
     },
     {
       "date": "2025-08-14",
-      "value": 30.96
+      "value": 30.97
     },
     {
       "date": "2025-08-15",
-      "value": 32.74
+      "value": 32.75
     },
     {
       "date": "2025-08-18",
-      "value": 32.1
+      "value": 32.11
     },
     {
       "date": "2025-08-19",
@@ -15666,7 +15666,7 @@
     },
     {
       "date": "2025-08-29",
-      "value": 34.38
+      "value": 34.39
     },
     {
       "date": "2025-09-01",
@@ -15690,11 +15690,11 @@
     },
     {
       "date": "2025-09-08",
-      "value": 33.83
+      "value": 33.82
     },
     {
       "date": "2025-09-09",
-      "value": 32.38
+      "value": 32.39
     },
     {
       "date": "2025-09-10",
@@ -15878,7 +15878,7 @@
     },
     {
       "date": "2025-11-12",
-      "value": 33.11
+      "value": 33.1
     },
     {
       "date": "2025-11-13",
@@ -15986,7 +15986,7 @@
     },
     {
       "date": "2025-12-19",
-      "value": 31.53
+      "value": 31.54
     },
     {
       "date": "2025-12-22",
@@ -16022,7 +16022,7 @@
     },
     {
       "date": "2026-01-01",
-      "value": 30.43
+      "value": 30.42
     },
     {
       "date": "2026-01-02",
@@ -16098,7 +16098,7 @@
     },
     {
       "date": "2026-01-28",
-      "value": 33.65
+      "value": 33.64
     },
     {
       "date": "2026-01-29",
@@ -16110,7 +16110,7 @@
     },
     {
       "date": "2026-02-02",
-      "value": 32.64
+      "value": 32.63
     },
     {
       "date": "2026-02-03",
@@ -16182,7 +16182,7 @@
     },
     {
       "date": "2026-02-26",
-      "value": 34.98
+      "value": 34.97
     },
     {
       "date": "2026-02-27",
@@ -16418,7 +16418,7 @@
     },
     {
       "date": "2026-05-20",
-      "value": 29.97
+      "value": 29.96
     },
     {
       "date": "2026-05-21",
@@ -16430,7 +16430,7 @@
     },
     {
       "date": "2026-05-25",
-      "value": 30.75
+      "value": 30.74
     },
     {
       "date": "2026-05-26",
@@ -16450,11 +16450,11 @@
     },
     {
       "date": "2026-06-01",
-      "value": 30.49
+      "value": 30.48
     },
     {
       "date": "2026-06-02",
-      "value": 30.65
+      "value": 30.64
     },
     {
       "date": "2026-06-03",
@@ -16770,16 +16770,16 @@
     }
   ],
   "data_freshness": {
-    "market_data_age_days": 0,
+    "market_data_age_days": 1,
     "is_stale": false,
     "latest_market_date": "2026-09-18",
-    "generated_at_utc": "2026-09-18T01:19:19Z",
+    "generated_at_utc": "2026-09-19T01:16:16Z",
     "stale_sources": [
       "FRED"
     ]
   },
   "build_metadata": {
-    "build_time": "2026-09-18 01:19:17",
+    "build_time": "2026-09-19 01:16:13",
     "dataset_shape": [
       17406,
       70
@@ -20824,7 +20824,7 @@
         21.02,
         20.38,
         19.31,
-        13.81,
+        14.0,
         null,
         null,
         null,
@@ -21378,7 +21378,7 @@
           44.0,
           43.8,
           41.4,
-          33.4,
+          33.5,
           34.5,
           31.5,
           15.2,
@@ -24611,7 +24611,7 @@
           52.1,
           61.2,
           50.8,
-          60.9,
+          61.0,
           19.2,
           23.9,
           56.8,
@@ -25268,7 +25268,7 @@
           22.0,
           52.7,
           68.4,
-          30.1,
+          30.0,
           15.6,
           30.7,
           11.1,
@@ -25410,10 +25410,10 @@
           40.3,
           13.5,
           50.8,
-          30.0,
+          29.9,
           39.7,
           10.1,
-          31.2,
+          31.1,
           42.4,
           83.1,
           53.2,
@@ -25523,7 +25523,7 @@
           24.4,
           24.2,
           70.8,
-          33.0,
+          32.9,
           90.1,
           26.8,
           91.0,
