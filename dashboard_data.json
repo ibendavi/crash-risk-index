@@ -1,30 +1,30 @@
 {
-  "generated_at": "2026-10-30 02:43",
+  "generated_at": "2026-10-31 02:18",
   "latest_date": "2026-10-30",
-  "weighted_agg": 37.1,
-  "crash_prob_median": 35.8,
-  "crash_prob_mean": 36.6,
-  "crash_prob_p75": 50.0,
-  "crash_prob_p90": 70.0,
+  "weighted_agg": 43.8,
+  "crash_prob_median": 47.0,
+  "crash_prob_mean": 41.6,
+  "crash_prob_p75": 60.1,
+  "crash_prob_p90": 80.6,
   "primary_definition": "Correlation-weighted aggregate percentile",
   "n_models": 21,
   "category_scores": {
-    "Volatility": 41.3,
+    "Volatility": 55.8,
     "Credit": 9.6,
-    "Market Technicals": 40.3,
+    "Market Technicals": 48.7,
     "Valuation / Positioning": 9.2,
-    "Cross-Asset": 45.7
+    "Cross-Asset": 47.0
   },
   "indicators": [
     {
       "id": "VIX",
       "name": "VIX (Fear Index)",
       "category": "Volatility",
-      "crash_prob": 47.9,
-      "raw_value": 17.2,
+      "crash_prob": 60.1,
+      "raw_value": 19.42,
       "crash_corr": 0.2335,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The CBOE Volatility Index measures the market's expectation of 30-day S&P 500 volatility, derived from option prices. Often called the \"fear gauge.\"",
       "calc": "Model-free variance swap formula aggregating prices of OTM S&P 500 puts and calls across two expiration dates bracketing 30 days: VIX = 100 * sqrt((2/T) * sum[(dK/K^2) * e^(rT) * Q(K)] - (1/T)*(F/K0 - 1)^2)",
       "source": "CBOE (FRED: VIXCLS)",
@@ -39,8 +39,8 @@
       "id": "SP500_VS_200DMA_INV",
       "name": "S&P 500 vs 200-DMA",
       "category": "Market Technicals",
-      "crash_prob": 40.3,
-      "raw_value": 5.4482,
+      "crash_prob": 53.3,
+      "raw_value": 3.5415,
       "crash_corr": 0.229,
       "frequency": "Daily",
       "last_update": "2026-10-30",
@@ -96,11 +96,11 @@
       "id": "DRAWDOWN_1Y",
       "name": "Trailing 1Y Drawdown",
       "category": "Market Technicals",
-      "crash_prob": 31.1,
-      "raw_value": -1.2603,
+      "crash_prob": 48.7,
+      "raw_value": -3.0549,
       "crash_corr": 0.1973,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The current S&P 500 drawdown from its trailing 252-day (1-year) high. Measures how far the market has fallen from its recent peak.",
       "calc": "DD = (P_t / max(P_{t-252:t}) - 1) * 100. Always <= 0. Zero = at the 1-year high.",
       "source": "Derived from S&P 500 daily closes",
@@ -115,11 +115,11 @@
       "id": "GOLD_SP_RATIO",
       "name": "Gold / S&P 500 Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 45.7,
-      "raw_value": 0.5198,
+      "crash_prob": 47.0,
+      "raw_value": 0.5125,
       "crash_corr": 0.1644,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The ratio of gold price to S&P 500. Rising ratio signals flight from risk assets to safe havens. Gold outperforms equities during stress periods.",
       "calc": "Gold/SPX Ratio = Gold Futures Price / S&P 500 Index Level.",
       "source": "Gold futures (yfinance: GC=F), S&P 500 (yfinance: ^GSPC)",
@@ -153,8 +153,8 @@
       "id": "REALIZED_VOL",
       "name": "Realized Volatility (21d)",
       "category": "Volatility",
-      "crash_prob": 34.7,
-      "raw_value": 9.9083,
+      "crash_prob": 51.5,
+      "raw_value": 11.836,
       "crash_corr": 0.1426,
       "frequency": "Daily",
       "last_update": "2026-10-30",
@@ -191,11 +191,11 @@
       "id": "CU_AU_RATIO_INV",
       "name": "Copper / Gold Ratio",
       "category": "Cross-Asset",
-      "crash_prob": 11.8,
-      "raw_value": 0.0016,
+      "crash_prob": 13.4,
+      "raw_value": 0.0017,
       "crash_corr": 0.1266,
       "frequency": "Daily",
-      "last_update": "2026-10-02",
+      "last_update": "2026-10-30",
       "what": "The copper-to-gold ratio. Copper (\"Dr. Copper\") is pro-cyclical (industrial demand), while gold is counter-cyclical (safe haven). A declining ratio signals deteriorating growth expectations.",
       "calc": "Cu/Au Ratio = Copper Futures Price / Gold Futures Price.",
       "source": "Copper (yfinance: HG=F), Gold (yfinance: GC=F)",
@@ -210,11 +210,11 @@
       "id": "RSI_14",
       "name": "RSI (14-day)",
       "category": "Market Technicals",
-      "crash_prob": 61.1,
-      "raw_value": 50.7719,
+      "crash_prob": 84.6,
+      "raw_value": 40.0516,
       "crash_corr": 0.1185,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The Relative Strength Index (14-day), a momentum oscillator measuring the speed and magnitude of recent price changes. Above 70 = overbought (vulnerable to correction), below 30 = oversold.",
       "calc": "RSI = 100 - 100/(1+RS), where RS = EMA(gains, 14) / EMA(losses, 14). Uses Wilder's smoothing (alpha = 1/14).",
       "source": "Derived from S&P 500 daily closes",
@@ -229,11 +229,11 @@
       "id": "DXY",
       "name": "US Dollar Index",
       "category": "Cross-Asset",
-      "crash_prob": 70.0,
-      "raw_value": 101.727,
+      "crash_prob": 70.7,
+      "raw_value": 101.964,
       "crash_corr": 0.104,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The US Dollar Index measures the value of the dollar against a basket of 6 major currencies (EUR 57.6%, JPY 13.6%, GBP 11.9%, CAD 9.1%, SEK 4.2%, CHF 3.6%). A strong dollar tightens global financial conditions.",
       "calc": "Geometric weighted average of USD exchange rates vs. 6 currencies: DXY = 50.14348112 * prod(FX_i ^ w_i). Base March 1973 = 100.",
       "source": "ICE Futures (yfinance: DX-Y.NYB)",
@@ -286,8 +286,8 @@
       "id": "VRP_INV",
       "name": "Variance Risk Premium",
       "category": "Volatility",
-      "crash_prob": 72.0,
-      "raw_value": 197.6658,
+      "crash_prob": 79.2,
+      "raw_value": 237.0453,
       "crash_corr": 0.0371,
       "frequency": "Daily",
       "last_update": "2026-10-30",
@@ -305,11 +305,11 @@
       "id": "VVIX",
       "name": "VVIX (Vol of VIX)",
       "category": "Volatility",
-      "crash_prob": 67.1,
-      "raw_value": 98.01,
-      "crash_corr": 0.0367,
+      "crash_prob": 80.6,
+      "raw_value": 106.43,
+      "crash_corr": 0.0366,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The CBOE VVIX measures the expected volatility of the VIX itself -- the \"volatility of volatility.\" Spikes when options markets are uncertain about future fear levels.",
       "calc": "Same model-free variance swap methodology as VIX, but applied to VIX options instead of S&P 500 options.",
       "source": "CBOE (yfinance: ^VVIX)",
@@ -343,11 +343,11 @@
       "id": "SKEW",
       "name": "CBOE SKEW Index",
       "category": "Volatility",
-      "crash_prob": 3.3,
-      "raw_value": 151.03,
+      "crash_prob": 3.9,
+      "raw_value": 149.76,
       "crash_corr": 0.0261,
       "frequency": "Daily",
-      "last_update": "2026-10-29",
+      "last_update": "2026-10-30",
       "what": "The CBOE SKEW Index measures perceived tail risk by quantifying the skewness of S&P 500 returns implied by option prices. Higher values mean the market prices a greater probability of extreme left-tail moves.",
       "calc": "SKEW = 100 - 10 * S, where S is the implied third moment (skewness) extracted from OTM option prices. Baseline of 100 = log-normal returns (no skew).",
       "source": "CBOE (yfinance: ^SKEW)",
@@ -362,8 +362,8 @@
       "id": "VIX_RV_SPREAD_INV",
       "name": "VIX-Realized Vol Spread",
       "category": "Volatility",
-      "crash_prob": 20.2,
-      "raw_value": 7.2917,
+      "crash_prob": 18.3,
+      "raw_value": 7.584,
       "crash_corr": 0.0221,
       "frequency": "Daily",
       "last_update": "2026-10-30",
@@ -428,7 +428,7 @@
     },
     {
       "date": "1960-08-01",
-      "value": 51.93
+      "value": 51.92
     },
     {
       "date": "1960-09-01",
@@ -464,7 +464,7 @@
     },
     {
       "date": "1961-05-01",
-      "value": 44.14
+      "value": 44.13
     },
     {
       "date": "1961-06-01",
@@ -568,11 +568,11 @@
     },
     {
       "date": "1963-07-01",
-      "value": 37.58
+      "value": 37.57
     },
     {
       "date": "1963-08-01",
-      "value": 37.67
+      "value": 37.66
     },
     {
       "date": "1963-09-01",
@@ -632,7 +632,7 @@
     },
     {
       "date": "1964-11-01",
-      "value": 29.42
+      "value": 29.41
     },
     {
       "date": "1964-12-01",
@@ -648,7 +648,7 @@
     },
     {
       "date": "1965-03-01",
-      "value": 35.64
+      "value": 35.63
     },
     {
       "date": "1965-04-01",
@@ -808,7 +808,7 @@
     },
     {
       "date": "1968-07-01",
-      "value": 45.96
+      "value": 45.95
     },
     {
       "date": "1968-08-01",
@@ -892,7 +892,7 @@
     },
     {
       "date": "1970-04-01",
-      "value": 69.39
+      "value": 69.38
     },
     {
       "date": "1970-05-01",
@@ -920,7 +920,7 @@
     },
     {
       "date": "1970-11-01",
-      "value": 59.04
+      "value": 59.03
     },
     {
       "date": "1970-12-01",
@@ -1016,7 +1016,7 @@
     },
     {
       "date": "1972-11-01",
-      "value": 34.13
+      "value": 34.12
     },
     {
       "date": "1972-12-01",
@@ -1152,7 +1152,7 @@
     },
     {
       "date": "1975-09-01",
-      "value": 53.88
+      "value": 53.87
     },
     {
       "date": "1975-10-01",
@@ -1184,7 +1184,7 @@
     },
     {
       "date": "1976-05-01",
-      "value": 42.71
+      "value": 42.7
     },
     {
       "date": "1976-06-01",
@@ -1196,7 +1196,7 @@
     },
     {
       "date": "1976-08-01",
-      "value": 41.28
+      "value": 41.27
     },
     {
       "date": "1976-09-01",
@@ -1300,7 +1300,7 @@
     },
     {
       "date": "1978-10-01",
-      "value": 35.18
+      "value": 35.17
     },
     {
       "date": "1978-11-01",
@@ -1348,7 +1348,7 @@
     },
     {
       "date": "1979-10-01",
-      "value": 37.17
+      "value": 37.16
     },
     {
       "date": "1979-11-01",
@@ -1392,7 +1392,7 @@
     },
     {
       "date": "1980-09-01",
-      "value": 43.86
+      "value": 43.85
     },
     {
       "date": "1980-10-01",
@@ -1584,7 +1584,7 @@
     },
     {
       "date": "1984-09-01",
-      "value": 53.94
+      "value": 53.93
     },
     {
       "date": "1984-10-01",
@@ -1608,7 +1608,7 @@
     },
     {
       "date": "1985-03-01",
-      "value": 30.54
+      "value": 30.53
     },
     {
       "date": "1985-04-01",
@@ -1640,7 +1640,7 @@
     },
     {
       "date": "1985-11-01",
-      "value": 44.8
+      "value": 44.79
     },
     {
       "date": "1985-12-01",
@@ -1688,7 +1688,7 @@
     },
     {
       "date": "1986-11-01",
-      "value": 46.26
+      "value": 46.25
     },
     {
       "date": "1986-12-01",
@@ -1720,7 +1720,7 @@
     },
     {
       "date": "1987-07-01",
-      "value": 38.91
+      "value": 38.9
     },
     {
       "date": "1987-08-01",
@@ -1736,7 +1736,7 @@
     },
     {
       "date": "1987-11-01",
-      "value": 66.48
+      "value": 66.47
     },
     {
       "date": "1987-12-01",
@@ -1856,7 +1856,7 @@
     },
     {
       "date": "1990-05-01",
-      "value": 66.73
+      "value": 66.72
     },
     {
       "date": "1990-06-01",
@@ -1868,7 +1868,7 @@
     },
     {
       "date": "1990-08-01",
-      "value": 55.62
+      "value": 55.61
     },
     {
       "date": "1990-09-01",
@@ -1900,7 +1900,7 @@
     },
     {
       "date": "1991-04-01",
-      "value": 45.68
+      "value": 45.67
     },
     {
       "date": "1991-05-01",
@@ -1952,7 +1952,7 @@
     },
     {
       "date": "1992-05-01",
-      "value": 47.74
+      "value": 47.73
     },
     {
       "date": "1992-06-01",
@@ -1960,11 +1960,11 @@
     },
     {
       "date": "1992-07-01",
-      "value": 41.14
+      "value": 41.13
     },
     {
       "date": "1992-08-01",
-      "value": 34.11
+      "value": 34.1
     },
     {
       "date": "1992-09-01",
@@ -2024,7 +2024,7 @@
     },
     {
       "date": "1993-11-01",
-      "value": 33.97
+      "value": 33.96
     },
     {
       "date": "1993-12-01",
@@ -2036,7 +2036,7 @@
     },
     {
       "date": "1994-02-01",
-      "value": 31.99
+      "value": 31.98
     },
     {
       "date": "1994-03-01",
@@ -2280,7 +2280,7 @@
     },
     {
       "date": "1999-03-01",
-      "value": 57.78
+      "value": 57.77
     },
     {
       "date": "1999-04-01",
@@ -2324,7 +2324,7 @@
     },
     {
       "date": "2000-02-01",
-      "value": 57.39
+      "value": 57.38
     },
     {
       "date": "2000-03-01",
@@ -2444,7 +2444,7 @@
     },
     {
       "date": "2002-08-01",
-      "value": 87.51
+      "value": 87.5
     },
     {
       "date": "2002-09-01",
@@ -2488,7 +2488,7 @@
     },
     {
       "date": "2003-07-01",
-      "value": 48.5
+      "value": 48.49
     },
     {
       "date": "2003-08-01",
@@ -2496,7 +2496,7 @@
     },
     {
       "date": "2003-09-01",
-      "value": 39.71
+      "value": 39.7
     },
     {
       "date": "2003-10-01",
@@ -2512,7 +2512,7 @@
     },
     {
       "date": "2004-01-01",
-      "value": 34.09
+      "value": 34.08
     },
     {
       "date": "2004-02-01",
@@ -2676,7 +2676,7 @@
     },
     {
       "date": "2007-06-01",
-      "value": 30.45
+      "value": 30.46
     },
     {
       "date": "2007-07-01",
@@ -2868,7 +2868,7 @@
     },
     {
       "date": "2011-06-01",
-      "value": 41.6
+      "value": 41.59
     },
     {
       "date": "2011-07-01",
@@ -2964,7 +2964,7 @@
     },
     {
       "date": "2013-06-01",
-      "value": 35.68
+      "value": 35.67
     },
     {
       "date": "2013-07-01",
@@ -2996,7 +2996,7 @@
     },
     {
       "date": "2014-02-01",
-      "value": 51.11
+      "value": 51.1
     },
     {
       "date": "2014-03-01",
@@ -3040,7 +3040,7 @@
     },
     {
       "date": "2015-01-01",
-      "value": 51.97
+      "value": 51.96
     },
     {
       "date": "2015-02-01",
@@ -3064,7 +3064,7 @@
     },
     {
       "date": "2015-07-01",
-      "value": 49.9
+      "value": 49.89
     },
     {
       "date": "2015-08-01",
@@ -3088,7 +3088,7 @@
     },
     {
       "date": "2016-01-01",
-      "value": 59.42
+      "value": 59.41
     },
     {
       "date": "2016-02-01",
@@ -3100,7 +3100,7 @@
     },
     {
       "date": "2016-04-01",
-      "value": 49.22
+      "value": 49.23
     },
     {
       "date": "2016-05-01",
@@ -3132,7 +3132,7 @@
     },
     {
       "date": "2016-12-01",
-      "value": 46.61
+      "value": 46.6
     },
     {
       "date": "2017-01-01",
@@ -3172,7 +3172,7 @@
     },
     {
       "date": "2017-10-01",
-      "value": 32.11
+      "value": 32.1
     },
     {
       "date": "2017-11-01",
@@ -3188,7 +3188,7 @@
     },
     {
       "date": "2018-02-01",
-      "value": 38.41
+      "value": 38.4
     },
     {
       "date": "2018-03-01",
@@ -3284,7 +3284,7 @@
     },
     {
       "date": "2020-02-01",
-      "value": 43.32
+      "value": 43.31
     },
     {
       "date": "2020-03-01",
@@ -3292,7 +3292,7 @@
     },
     {
       "date": "2020-04-01",
-      "value": 73.32
+      "value": 73.31
     },
     {
       "date": "2020-05-01",
@@ -3312,7 +3312,7 @@
     },
     {
       "date": "2020-09-01",
-      "value": 35.93
+      "value": 35.92
     },
     {
       "date": "2020-10-01",
@@ -3336,11 +3336,11 @@
     },
     {
       "date": "2021-03-01",
-      "value": 40.72
+      "value": 40.71
     },
     {
       "date": "2021-04-01",
-      "value": 34.68
+      "value": 34.67
     },
     {
       "date": "2021-05-01",
@@ -3356,7 +3356,7 @@
     },
     {
       "date": "2021-08-01",
-      "value": 40.17
+      "value": 40.16
     },
     {
       "date": "2021-09-01",
@@ -3372,7 +3372,7 @@
     },
     {
       "date": "2021-11-02",
-      "value": 35.75
+      "value": 35.74
     },
     {
       "date": "2021-11-03",
@@ -3400,7 +3400,7 @@
     },
     {
       "date": "2021-11-11",
-      "value": 39.93
+      "value": 39.92
     },
     {
       "date": "2021-11-12",
@@ -3420,15 +3420,15 @@
     },
     {
       "date": "2021-11-18",
-      "value": 35.7
+      "value": 35.69
     },
     {
       "date": "2021-11-19",
-      "value": 37.3
+      "value": 37.29
     },
     {
       "date": "2021-11-22",
-      "value": 39.74
+      "value": 39.73
     },
     {
       "date": "2021-11-23",
@@ -3444,7 +3444,7 @@
     },
     {
       "date": "2021-11-26",
-      "value": 50.08
+      "value": 50.07
     },
     {
       "date": "2021-11-29",
@@ -3456,7 +3456,7 @@
     },
     {
       "date": "2021-12-01",
-      "value": 54.93
+      "value": 54.92
     },
     {
       "date": "2021-12-02",
@@ -3484,11 +3484,11 @@
     },
     {
       "date": "2021-12-10",
-      "value": 43.42
+      "value": 43.41
     },
     {
       "date": "2021-12-13",
-      "value": 47.57
+      "value": 47.56
     },
     {
       "date": "2021-12-14",
@@ -3504,11 +3504,11 @@
     },
     {
       "date": "2021-12-17",
-      "value": 51.15
+      "value": 51.14
     },
     {
       "date": "2021-12-20",
-      "value": 54.19
+      "value": 54.18
     },
     {
       "date": "2021-12-21",
@@ -3564,7 +3564,7 @@
     },
     {
       "date": "2022-01-07",
-      "value": 49.77
+      "value": 49.76
     },
     {
       "date": "2022-01-10",
@@ -3572,11 +3572,11 @@
     },
     {
       "date": "2022-01-11",
-      "value": 47.64
+      "value": 47.63
     },
     {
       "date": "2022-01-12",
-      "value": 46.8
+      "value": 46.79
     },
     {
       "date": "2022-01-13",
@@ -3584,7 +3584,7 @@
     },
     {
       "date": "2022-01-14",
-      "value": 50.09
+      "value": 50.08
     },
     {
       "date": "2022-01-17",
@@ -3600,7 +3600,7 @@
     },
     {
       "date": "2022-01-20",
-      "value": 58.79
+      "value": 58.78
     },
     {
       "date": "2022-01-21",
@@ -3612,11 +3612,11 @@
     },
     {
       "date": "2022-01-25",
-      "value": 61.09
+      "value": 61.08
     },
     {
       "date": "2022-01-26",
-      "value": 61.84
+      "value": 61.83
     },
     {
       "date": "2022-01-27",
@@ -3644,7 +3644,7 @@
     },
     {
       "date": "2022-02-04",
-      "value": 59.5
+      "value": 59.49
     },
     {
       "date": "2022-02-07",
@@ -3708,7 +3708,7 @@
     },
     {
       "date": "2022-02-28",
-      "value": 63.9
+      "value": 63.89
     },
     {
       "date": "2022-03-01",
@@ -3716,7 +3716,7 @@
     },
     {
       "date": "2022-03-02",
-      "value": 63.74
+      "value": 63.73
     },
     {
       "date": "2022-03-03",
@@ -3732,11 +3732,11 @@
     },
     {
       "date": "2022-03-08",
-      "value": 67.34
+      "value": 67.33
     },
     {
       "date": "2022-03-09",
-      "value": 66.11
+      "value": 66.1
     },
     {
       "date": "2022-03-10",
@@ -3804,7 +3804,7 @@
     },
     {
       "date": "2022-04-01",
-      "value": 60.97
+      "value": 60.96
     },
     {
       "date": "2022-04-04",
@@ -3812,7 +3812,7 @@
     },
     {
       "date": "2022-04-05",
-      "value": 60.48
+      "value": 60.47
     },
     {
       "date": "2022-04-06",
@@ -3820,7 +3820,7 @@
     },
     {
       "date": "2022-04-07",
-      "value": 60.82
+      "value": 60.81
     },
     {
       "date": "2022-04-08",
@@ -3844,7 +3844,7 @@
     },
     {
       "date": "2022-04-15",
-      "value": 63.07
+      "value": 63.06
     },
     {
       "date": "2022-04-18",
@@ -3888,7 +3888,7 @@
     },
     {
       "date": "2022-05-02",
-      "value": 70.64
+      "value": 70.63
     },
     {
       "date": "2022-05-03",
@@ -3912,7 +3912,7 @@
     },
     {
       "date": "2022-05-10",
-      "value": 74.66
+      "value": 74.65
     },
     {
       "date": "2022-05-11",
@@ -3992,7 +3992,7 @@
     },
     {
       "date": "2022-06-07",
-      "value": 70.81
+      "value": 70.82
     },
     {
       "date": "2022-06-08",
@@ -4008,7 +4008,7 @@
     },
     {
       "date": "2022-06-13",
-      "value": 76.79
+      "value": 76.78
     },
     {
       "date": "2022-06-14",
@@ -4128,7 +4128,7 @@
     },
     {
       "date": "2022-07-25",
-      "value": 69.91
+      "value": 69.92
     },
     {
       "date": "2022-07-26",
@@ -4136,7 +4136,7 @@
     },
     {
       "date": "2022-07-27",
-      "value": 69.01
+      "value": 69.02
     },
     {
       "date": "2022-07-28",
@@ -4244,7 +4244,7 @@
     },
     {
       "date": "2022-09-02",
-      "value": 71.88
+      "value": 71.89
     },
     {
       "date": "2022-09-05",
@@ -4264,7 +4264,7 @@
     },
     {
       "date": "2022-09-09",
-      "value": 68.12
+      "value": 68.13
     },
     {
       "date": "2022-09-12",
@@ -4272,7 +4272,7 @@
     },
     {
       "date": "2022-09-13",
-      "value": 72.21
+      "value": 72.22
     },
     {
       "date": "2022-09-14",
@@ -4396,7 +4396,7 @@
     },
     {
       "date": "2022-10-26",
-      "value": 72.32
+      "value": 72.33
     },
     {
       "date": "2022-10-27",
@@ -4408,7 +4408,7 @@
     },
     {
       "date": "2022-10-31",
-      "value": 71.48
+      "value": 71.49
     },
     {
       "date": "2022-11-01",
@@ -4428,7 +4428,7 @@
     },
     {
       "date": "2022-11-07",
-      "value": 72.44
+      "value": 72.45
     },
     {
       "date": "2022-11-08",
@@ -4444,7 +4444,7 @@
     },
     {
       "date": "2022-11-11",
-      "value": 69.56
+      "value": 69.57
     },
     {
       "date": "2022-11-14",
@@ -4468,7 +4468,7 @@
     },
     {
       "date": "2022-11-21",
-      "value": 69.2
+      "value": 69.21
     },
     {
       "date": "2022-11-22",
@@ -4476,7 +4476,7 @@
     },
     {
       "date": "2022-11-23",
-      "value": 66.22
+      "value": 66.23
     },
     {
       "date": "2022-11-24",
@@ -4520,7 +4520,7 @@
     },
     {
       "date": "2022-12-08",
-      "value": 65.95
+      "value": 65.96
     },
     {
       "date": "2022-12-09",
@@ -4572,7 +4572,7 @@
     },
     {
       "date": "2022-12-27",
-      "value": 68.22
+      "value": 68.23
     },
     {
       "date": "2022-12-28",
@@ -4608,7 +4608,7 @@
     },
     {
       "date": "2023-01-09",
-      "value": 67.83
+      "value": 67.84
     },
     {
       "date": "2023-01-10",
@@ -4632,7 +4632,7 @@
     },
     {
       "date": "2023-01-17",
-      "value": 62.89
+      "value": 62.9
     },
     {
       "date": "2023-01-18",
@@ -4640,15 +4640,15 @@
     },
     {
       "date": "2023-01-19",
-      "value": 66.25
+      "value": 66.26
     },
     {
       "date": "2023-01-20",
-      "value": 64.1
+      "value": 64.11
     },
     {
       "date": "2023-01-23",
-      "value": 62.63
+      "value": 62.64
     },
     {
       "date": "2023-01-24",
@@ -4748,7 +4748,7 @@
     },
     {
       "date": "2023-02-27",
-      "value": 60.75
+      "value": 60.76
     },
     {
       "date": "2023-02-28",
@@ -4844,7 +4844,7 @@
     },
     {
       "date": "2023-03-31",
-      "value": 51.65
+      "value": 51.64
     },
     {
       "date": "2023-04-03",
@@ -4860,7 +4860,7 @@
     },
     {
       "date": "2023-04-06",
-      "value": 50.63
+      "value": 50.62
     },
     {
       "date": "2023-04-07",
@@ -4944,7 +4944,7 @@
     },
     {
       "date": "2023-05-05",
-      "value": 46.93
+      "value": 46.92
     },
     {
       "date": "2023-05-08",
@@ -5020,7 +5020,7 @@
     },
     {
       "date": "2023-06-01",
-      "value": 44.45
+      "value": 44.46
     },
     {
       "date": "2023-06-02",
@@ -5060,7 +5060,7 @@
     },
     {
       "date": "2023-06-15",
-      "value": 37.52
+      "value": 37.51
     },
     {
       "date": "2023-06-16",
@@ -5128,7 +5128,7 @@
     },
     {
       "date": "2023-07-10",
-      "value": 44.15
+      "value": 44.14
     },
     {
       "date": "2023-07-11",
@@ -5136,7 +5136,7 @@
     },
     {
       "date": "2023-07-12",
-      "value": 38.61
+      "value": 38.6
     },
     {
       "date": "2023-07-13",
@@ -5272,7 +5272,7 @@
     },
     {
       "date": "2023-08-29",
-      "value": 42.98
+      "value": 42.99
     },
     {
       "date": "2023-08-30",
@@ -5280,7 +5280,7 @@
     },
     {
       "date": "2023-08-31",
-      "value": 41.25
+      "value": 41.26
     },
     {
       "date": "2023-09-01",
@@ -5316,7 +5316,7 @@
     },
     {
       "date": "2023-09-13",
-      "value": 43.3
+      "value": 43.29
     },
     {
       "date": "2023-09-14",
@@ -5352,7 +5352,7 @@
     },
     {
       "date": "2023-09-26",
-      "value": 54.7
+      "value": 54.69
     },
     {
       "date": "2023-09-27",
@@ -5372,7 +5372,7 @@
     },
     {
       "date": "2023-10-03",
-      "value": 56.65
+      "value": 56.64
     },
     {
       "date": "2023-10-04",
@@ -5388,7 +5388,7 @@
     },
     {
       "date": "2023-10-09",
-      "value": 52.16
+      "value": 52.15
     },
     {
       "date": "2023-10-10",
@@ -5460,7 +5460,7 @@
     },
     {
       "date": "2023-11-02",
-      "value": 53.39
+      "value": 53.4
     },
     {
       "date": "2023-11-03",
@@ -5480,7 +5480,7 @@
     },
     {
       "date": "2023-11-09",
-      "value": 53.44
+      "value": 53.45
     },
     {
       "date": "2023-11-10",
@@ -5600,7 +5600,7 @@
     },
     {
       "date": "2023-12-21",
-      "value": 35.54
+      "value": 35.53
     },
     {
       "date": "2023-12-22",
@@ -5688,11 +5688,11 @@
     },
     {
       "date": "2024-01-22",
-      "value": 32.31
+      "value": 32.32
     },
     {
       "date": "2024-01-23",
-      "value": 31.57
+      "value": 31.58
     },
     {
       "date": "2024-01-24",
@@ -5704,7 +5704,7 @@
     },
     {
       "date": "2024-01-26",
-      "value": 32.61
+      "value": 32.62
     },
     {
       "date": "2024-01-29",
@@ -5924,7 +5924,7 @@
     },
     {
       "date": "2024-04-12",
-      "value": 41.91
+      "value": 41.9
     },
     {
       "date": "2024-04-15",
@@ -5976,7 +5976,7 @@
     },
     {
       "date": "2024-05-01",
-      "value": 46.35
+      "value": 46.36
     },
     {
       "date": "2024-05-02",
@@ -6088,7 +6088,7 @@
     },
     {
       "date": "2024-06-10",
-      "value": 30.8
+      "value": 30.81
     },
     {
       "date": "2024-06-11",
@@ -6256,7 +6256,7 @@
     },
     {
       "date": "2024-08-07",
-      "value": 56.99
+      "value": 56.98
     },
     {
       "date": "2024-08-08",
@@ -6280,7 +6280,7 @@
     },
     {
       "date": "2024-08-15",
-      "value": 42.91
+      "value": 42.9
     },
     {
       "date": "2024-08-16",
@@ -6292,7 +6292,7 @@
     },
     {
       "date": "2024-08-20",
-      "value": 40.21
+      "value": 40.2
     },
     {
       "date": "2024-08-21",
@@ -6300,7 +6300,7 @@
     },
     {
       "date": "2024-08-22",
-      "value": 43.11
+      "value": 43.1
     },
     {
       "date": "2024-08-23",
@@ -6308,7 +6308,7 @@
     },
     {
       "date": "2024-08-26",
-      "value": 40.06
+      "value": 40.05
     },
     {
       "date": "2024-08-27",
@@ -6404,11 +6404,11 @@
     },
     {
       "date": "2024-09-27",
-      "value": 38.02
+      "value": 38.01
     },
     {
       "date": "2024-09-30",
-      "value": 36.66
+      "value": 36.65
     },
     {
       "date": "2024-10-01",
@@ -6416,11 +6416,11 @@
     },
     {
       "date": "2024-10-02",
-      "value": 40.54
+      "value": 40.53
     },
     {
       "date": "2024-10-03",
-      "value": 41.91
+      "value": 41.9
     },
     {
       "date": "2024-10-04",
@@ -6448,7 +6448,7 @@
     },
     {
       "date": "2024-10-14",
-      "value": 35.86
+      "value": 35.85
     },
     {
       "date": "2024-10-15",
@@ -6460,11 +6460,11 @@
     },
     {
       "date": "2024-10-17",
-      "value": 37.05
+      "value": 37.04
     },
     {
       "date": "2024-10-18",
-      "value": 34.12
+      "value": 34.11
     },
     {
       "date": "2024-10-21",
@@ -6476,7 +6476,7 @@
     },
     {
       "date": "2024-10-23",
-      "value": 39.75
+      "value": 39.74
     },
     {
       "date": "2024-10-24",
@@ -6488,7 +6488,7 @@
     },
     {
       "date": "2024-10-28",
-      "value": 38.86
+      "value": 38.85
     },
     {
       "date": "2024-10-29",
@@ -6544,7 +6544,7 @@
     },
     {
       "date": "2024-11-15",
-      "value": 41.03
+      "value": 41.02
     },
     {
       "date": "2024-11-18",
@@ -6552,7 +6552,7 @@
     },
     {
       "date": "2024-11-19",
-      "value": 38.08
+      "value": 38.07
     },
     {
       "date": "2024-11-20",
@@ -6636,7 +6636,7 @@
     },
     {
       "date": "2024-12-18",
-      "value": 49.57
+      "value": 49.56
     },
     {
       "date": "2024-12-19",
@@ -6644,7 +6644,7 @@
     },
     {
       "date": "2024-12-20",
-      "value": 44.17
+      "value": 44.16
     },
     {
       "date": "2024-12-23",
@@ -6664,7 +6664,7 @@
     },
     {
       "date": "2024-12-27",
-      "value": 42.64
+      "value": 42.63
     },
     {
       "date": "2024-12-30",
@@ -6680,11 +6680,11 @@
     },
     {
       "date": "2025-01-02",
-      "value": 45.24
+      "value": 45.23
     },
     {
       "date": "2025-01-03",
-      "value": 41.1
+      "value": 41.09
     },
     {
       "date": "2025-01-06",
@@ -6696,7 +6696,7 @@
     },
     {
       "date": "2025-01-08",
-      "value": 41.76
+      "value": 41.75
     },
     {
       "date": "2025-01-09",
@@ -6712,7 +6712,7 @@
     },
     {
       "date": "2025-01-14",
-      "value": 44.8
+      "value": 44.79
     },
     {
       "date": "2025-01-15",
@@ -6724,7 +6724,7 @@
     },
     {
       "date": "2025-01-17",
-      "value": 36.97
+      "value": 36.96
     },
     {
       "date": "2025-01-20",
@@ -6752,7 +6752,7 @@
     },
     {
       "date": "2025-01-28",
-      "value": 35.87
+      "value": 35.86
     },
     {
       "date": "2025-01-29",
@@ -6832,7 +6832,7 @@
     },
     {
       "date": "2025-02-25",
-      "value": 44.44
+      "value": 44.43
     },
     {
       "date": "2025-02-26",
@@ -6872,11 +6872,11 @@
     },
     {
       "date": "2025-03-11",
-      "value": 56.68
+      "value": 56.67
     },
     {
       "date": "2025-03-12",
-      "value": 55.7
+      "value": 55.69
     },
     {
       "date": "2025-03-13",
@@ -6948,11 +6948,11 @@
     },
     {
       "date": "2025-04-07",
-      "value": 63.81
+      "value": 63.8
     },
     {
       "date": "2025-04-08",
-      "value": 63.89
+      "value": 63.88
     },
     {
       "date": "2025-04-09",
@@ -6972,7 +6972,7 @@
     },
     {
       "date": "2025-04-15",
-      "value": 64.75
+      "value": 64.74
     },
     {
       "date": "2025-04-16",
@@ -6992,7 +6992,7 @@
     },
     {
       "date": "2025-04-22",
-      "value": 65.15
+      "value": 65.14
     },
     {
       "date": "2025-04-23",
@@ -7008,7 +7008,7 @@
     },
     {
       "date": "2025-04-28",
-      "value": 62.68
+      "value": 62.67
     },
     {
       "date": "2025-04-29",
@@ -7076,7 +7076,7 @@
     },
     {
       "date": "2025-05-21",
-      "value": 56.83
+      "value": 56.82
     },
     {
       "date": "2025-05-22",
@@ -7104,7 +7104,7 @@
     },
     {
       "date": "2025-05-30",
-      "value": 53.27
+      "value": 53.26
     },
     {
       "date": "2025-06-02",
@@ -7136,7 +7136,7 @@
     },
     {
       "date": "2025-06-11",
-      "value": 46.6
+      "value": 46.59
     },
     {
       "date": "2025-06-12",
@@ -7148,7 +7148,7 @@
     },
     {
       "date": "2025-06-16",
-      "value": 47.96
+      "value": 47.95
     },
     {
       "date": "2025-06-17",
@@ -7228,15 +7228,15 @@
     },
     {
       "date": "2025-07-14",
-      "value": 34.62
+      "value": 34.61
     },
     {
       "date": "2025-07-15",
-      "value": 35.89
+      "value": 35.88
     },
     {
       "date": "2025-07-16",
-      "value": 34.54
+      "value": 34.53
     },
     {
       "date": "2025-07-17",
@@ -7276,7 +7276,7 @@
     },
     {
       "date": "2025-07-30",
-      "value": 31.29
+      "value": 31.28
     },
     {
       "date": "2025-07-31",
@@ -7292,7 +7292,7 @@
     },
     {
       "date": "2025-08-05",
-      "value": 37.32
+      "value": 37.31
     },
     {
       "date": "2025-08-06",
@@ -7324,7 +7324,7 @@
     },
     {
       "date": "2025-08-15",
-      "value": 31.93
+      "value": 31.92
     },
     {
       "date": "2025-08-18",
@@ -7336,11 +7336,11 @@
     },
     {
       "date": "2025-08-20",
-      "value": 35.25
+      "value": 35.24
     },
     {
       "date": "2025-08-21",
-      "value": 36.5
+      "value": 36.49
     },
     {
       "date": "2025-08-22",
@@ -7356,7 +7356,7 @@
     },
     {
       "date": "2025-08-27",
-      "value": 30.62
+      "value": 30.61
     },
     {
       "date": "2025-08-28",
@@ -7364,7 +7364,7 @@
     },
     {
       "date": "2025-08-29",
-      "value": 33.63
+      "value": 33.62
     },
     {
       "date": "2025-09-01",
@@ -7432,7 +7432,7 @@
     },
     {
       "date": "2025-09-23",
-      "value": 30.36
+      "value": 30.35
     },
     {
       "date": "2025-09-24",
@@ -7468,7 +7468,7 @@
     },
     {
       "date": "2025-10-06",
-      "value": 25.67
+      "value": 25.66
     },
     {
       "date": "2025-10-07",
@@ -7484,15 +7484,15 @@
     },
     {
       "date": "2025-10-10",
-      "value": 39.92
+      "value": 39.91
     },
     {
       "date": "2025-10-13",
-      "value": 35.75
+      "value": 35.74
     },
     {
       "date": "2025-10-14",
-      "value": 36.81
+      "value": 36.8
     },
     {
       "date": "2025-10-15",
@@ -7500,7 +7500,7 @@
     },
     {
       "date": "2025-10-16",
-      "value": 39.25
+      "value": 39.24
     },
     {
       "date": "2025-10-17",
@@ -7508,7 +7508,7 @@
     },
     {
       "date": "2025-10-20",
-      "value": 31.54
+      "value": 31.53
     },
     {
       "date": "2025-10-21",
@@ -7516,11 +7516,11 @@
     },
     {
       "date": "2025-10-22",
-      "value": 34.02
+      "value": 34.01
     },
     {
       "date": "2025-10-23",
-      "value": 31.77
+      "value": 31.76
     },
     {
       "date": "2025-10-24",
@@ -7552,7 +7552,7 @@
     },
     {
       "date": "2025-11-04",
-      "value": 36.41
+      "value": 36.4
     },
     {
       "date": "2025-11-05",
@@ -7560,7 +7560,7 @@
     },
     {
       "date": "2025-11-06",
-      "value": 38.9
+      "value": 38.89
     },
     {
       "date": "2025-11-07",
@@ -7592,7 +7592,7 @@
     },
     {
       "date": "2025-11-18",
-      "value": 43.8
+      "value": 43.79
     },
     {
       "date": "2025-11-19",
@@ -7632,7 +7632,7 @@
     },
     {
       "date": "2025-12-02",
-      "value": 33.78
+      "value": 33.77
     },
     {
       "date": "2025-12-03",
@@ -7652,11 +7652,11 @@
     },
     {
       "date": "2025-12-09",
-      "value": 33.25
+      "value": 33.24
     },
     {
       "date": "2025-12-10",
-      "value": 30.6
+      "value": 30.59
     },
     {
       "date": "2025-12-11",
@@ -7740,7 +7740,7 @@
     },
     {
       "date": "2026-01-08",
-      "value": 30.06
+      "value": 30.05
     },
     {
       "date": "2026-01-09",
@@ -7776,7 +7776,7 @@
     },
     {
       "date": "2026-01-21",
-      "value": 34.74
+      "value": 34.73
     },
     {
       "date": "2026-01-22",
@@ -7784,7 +7784,7 @@
     },
     {
       "date": "2026-01-23",
-      "value": 32.72
+      "value": 32.71
     },
     {
       "date": "2026-01-26",
@@ -7804,7 +7804,7 @@
     },
     {
       "date": "2026-01-30",
-      "value": 33.97
+      "value": 33.96
     },
     {
       "date": "2026-02-02",
@@ -7816,11 +7816,11 @@
     },
     {
       "date": "2026-02-04",
-      "value": 37.19
+      "value": 37.18
     },
     {
       "date": "2026-02-05",
-      "value": 41.73
+      "value": 41.72
     },
     {
       "date": "2026-02-06",
@@ -7828,7 +7828,7 @@
     },
     {
       "date": "2026-02-09",
-      "value": 33.37
+      "value": 33.36
     },
     {
       "date": "2026-02-10",
@@ -7836,7 +7836,7 @@
     },
     {
       "date": "2026-02-11",
-      "value": 34.35
+      "value": 34.34
     },
     {
       "date": "2026-02-12",
@@ -7856,7 +7856,7 @@
     },
     {
       "date": "2026-02-18",
-      "value": 37.99
+      "value": 37.98
     },
     {
       "date": "2026-02-19",
@@ -7872,7 +7872,7 @@
     },
     {
       "date": "2026-02-24",
-      "value": 36.97
+      "value": 36.96
     },
     {
       "date": "2026-02-25",
@@ -7880,11 +7880,11 @@
     },
     {
       "date": "2026-02-26",
-      "value": 35.47
+      "value": 35.46
     },
     {
       "date": "2026-02-27",
-      "value": 37.49
+      "value": 37.48
     },
     {
       "date": "2026-03-02",
@@ -7892,15 +7892,15 @@
     },
     {
       "date": "2026-03-03",
-      "value": 41.66
+      "value": 41.65
     },
     {
       "date": "2026-03-04",
-      "value": 38.97
+      "value": 38.96
     },
     {
       "date": "2026-03-05",
-      "value": 41.47
+      "value": 41.46
     },
     {
       "date": "2026-03-06",
@@ -7908,7 +7908,7 @@
     },
     {
       "date": "2026-03-09",
-      "value": 42.41
+      "value": 42.4
     },
     {
       "date": "2026-03-10",
@@ -7916,7 +7916,7 @@
     },
     {
       "date": "2026-03-11",
-      "value": 43.12
+      "value": 43.11
     },
     {
       "date": "2026-03-12",
@@ -7940,7 +7940,7 @@
     },
     {
       "date": "2026-03-19",
-      "value": 47.13
+      "value": 47.12
     },
     {
       "date": "2026-03-20",
@@ -7948,11 +7948,11 @@
     },
     {
       "date": "2026-03-23",
-      "value": 48.11
+      "value": 48.1
     },
     {
       "date": "2026-03-24",
-      "value": 48.9
+      "value": 48.89
     },
     {
       "date": "2026-03-25",
@@ -7988,7 +7988,7 @@
     },
     {
       "date": "2026-04-06",
-      "value": 46.82
+      "value": 46.81
     },
     {
       "date": "2026-04-07",
@@ -8008,7 +8008,7 @@
     },
     {
       "date": "2026-04-13",
-      "value": 39.47
+      "value": 39.46
     },
     {
       "date": "2026-04-14",
@@ -8020,11 +8020,11 @@
     },
     {
       "date": "2026-04-16",
-      "value": 34.37
+      "value": 34.36
     },
     {
       "date": "2026-04-17",
-      "value": 33.09
+      "value": 33.08
     },
     {
       "date": "2026-04-20",
@@ -8032,7 +8032,7 @@
     },
     {
       "date": "2026-04-21",
-      "value": 36.11
+      "value": 36.1
     },
     {
       "date": "2026-04-22",
@@ -8072,7 +8072,7 @@
     },
     {
       "date": "2026-05-05",
-      "value": 31.14
+      "value": 31.13
     },
     {
       "date": "2026-05-06",
@@ -8100,7 +8100,7 @@
     },
     {
       "date": "2026-05-14",
-      "value": 27.99
+      "value": 27.98
     },
     {
       "date": "2026-05-15",
@@ -8128,7 +8128,7 @@
     },
     {
       "date": "2026-05-25",
-      "value": 29.54
+      "value": 29.53
     },
     {
       "date": "2026-05-26",
@@ -8208,7 +8208,7 @@
     },
     {
       "date": "2026-06-22",
-      "value": 35.52
+      "value": 35.51
     },
     {
       "date": "2026-06-23",
@@ -8272,7 +8272,7 @@
     },
     {
       "date": "2026-07-14",
-      "value": 33.56
+      "value": 33.55
     },
     {
       "date": "2026-07-15",
@@ -8288,7 +8288,7 @@
     },
     {
       "date": "2026-07-20",
-      "value": 38.38
+      "value": 38.37
     },
     {
       "date": "2026-07-21",
@@ -8296,7 +8296,7 @@
     },
     {
       "date": "2026-07-22",
-      "value": 34.67
+      "value": 34.66
     },
     {
       "date": "2026-07-23",
@@ -8304,7 +8304,7 @@
     },
     {
       "date": "2026-07-24",
-      "value": 39.54
+      "value": 39.53
     },
     {
       "date": "2026-07-27",
@@ -8380,7 +8380,7 @@
     },
     {
       "date": "2026-08-20",
-      "value": 35.93
+      "value": 35.92
     },
     {
       "date": "2026-08-21",
@@ -8520,7 +8520,7 @@
     },
     {
       "date": "2026-10-08",
-      "value": 32.29
+      "value": 32.28
     },
     {
       "date": "2026-10-09",
@@ -8536,7 +8536,7 @@
     },
     {
       "date": "2026-10-14",
-      "value": 36.48
+      "value": 36.47
     },
     {
       "date": "2026-10-15",
@@ -8548,7 +8548,7 @@
     },
     {
       "date": "2026-10-19",
-      "value": 38.18
+      "value": 38.17
     },
     {
       "date": "2026-10-20",
@@ -8560,11 +8560,11 @@
     },
     {
       "date": "2026-10-22",
-      "value": 38.91
+      "value": 38.9
     },
     {
       "date": "2026-10-23",
-      "value": 40.72
+      "value": 40.71
     },
     {
       "date": "2026-10-26",
@@ -8584,7 +8584,7 @@
     },
     {
       "date": "2026-10-30",
-      "value": 37.07
+      "value": 43.77
     }
   ],
   "median_history": [
@@ -8618,7 +8618,7 @@
     },
     {
       "date": "1960-08-01",
-      "value": 46.06
+      "value": 46.05
     },
     {
       "date": "1960-09-01",
@@ -8634,7 +8634,7 @@
     },
     {
       "date": "1960-12-01",
-      "value": 63.41
+      "value": 63.4
     },
     {
       "date": "1961-01-01",
@@ -8990,7 +8990,7 @@
     },
     {
       "date": "1968-05-01",
-      "value": 47.07
+      "value": 47.06
     },
     {
       "date": "1968-06-01",
@@ -8998,7 +8998,7 @@
     },
     {
       "date": "1968-07-01",
-      "value": 47.23
+      "value": 47.22
     },
     {
       "date": "1968-08-01",
@@ -9050,7 +9050,7 @@
     },
     {
       "date": "1969-08-01",
-      "value": 76.96
+      "value": 76.95
     },
     {
       "date": "1969-09-01",
@@ -9126,7 +9126,7 @@
     },
     {
       "date": "1971-03-01",
-      "value": 36.09
+      "value": 36.08
     },
     {
       "date": "1971-04-01",
@@ -9190,11 +9190,11 @@
     },
     {
       "date": "1972-07-01",
-      "value": 47.22
+      "value": 47.21
     },
     {
       "date": "1972-08-01",
-      "value": 39.79
+      "value": 39.78
     },
     {
       "date": "1972-09-01",
@@ -9202,7 +9202,7 @@
     },
     {
       "date": "1972-10-01",
-      "value": 40.52
+      "value": 40.51
     },
     {
       "date": "1972-11-01",
@@ -9278,11 +9278,11 @@
     },
     {
       "date": "1974-05-01",
-      "value": 73.25
+      "value": 73.24
     },
     {
       "date": "1974-06-01",
-      "value": 71.59
+      "value": 71.58
     },
     {
       "date": "1974-07-01",
@@ -9322,7 +9322,7 @@
     },
     {
       "date": "1975-04-01",
-      "value": 56.69
+      "value": 56.68
     },
     {
       "date": "1975-05-01",
@@ -9366,7 +9366,7 @@
     },
     {
       "date": "1976-03-01",
-      "value": 37.88
+      "value": 37.87
     },
     {
       "date": "1976-04-01",
@@ -9390,7 +9390,7 @@
     },
     {
       "date": "1976-09-01",
-      "value": 41.27
+      "value": 41.26
     },
     {
       "date": "1976-10-01",
@@ -9538,7 +9538,7 @@
     },
     {
       "date": "1979-10-01",
-      "value": 36.34
+      "value": 36.33
     },
     {
       "date": "1979-11-01",
@@ -9558,7 +9558,7 @@
     },
     {
       "date": "1980-03-01",
-      "value": 45.6
+      "value": 45.59
     },
     {
       "date": "1980-04-01",
@@ -9574,7 +9574,7 @@
     },
     {
       "date": "1980-07-01",
-      "value": 45.85
+      "value": 45.84
     },
     {
       "date": "1980-08-01",
@@ -9606,7 +9606,7 @@
     },
     {
       "date": "1981-03-01",
-      "value": 50.15
+      "value": 50.14
     },
     {
       "date": "1981-04-01",
@@ -9618,7 +9618,7 @@
     },
     {
       "date": "1981-06-01",
-      "value": 56.71
+      "value": 56.7
     },
     {
       "date": "1981-07-01",
@@ -9754,7 +9754,7 @@
     },
     {
       "date": "1984-04-01",
-      "value": 67.72
+      "value": 67.71
     },
     {
       "date": "1984-05-01",
@@ -9806,7 +9806,7 @@
     },
     {
       "date": "1985-05-01",
-      "value": 46.02
+      "value": 46.01
     },
     {
       "date": "1985-06-01",
@@ -9830,7 +9830,7 @@
     },
     {
       "date": "1985-11-01",
-      "value": 42.16
+      "value": 42.15
     },
     {
       "date": "1985-12-01",
@@ -9950,7 +9950,7 @@
     },
     {
       "date": "1988-05-01",
-      "value": 75.48
+      "value": 75.47
     },
     {
       "date": "1988-06-01",
@@ -9982,7 +9982,7 @@
     },
     {
       "date": "1989-01-01",
-      "value": 43.02
+      "value": 43.01
     },
     {
       "date": "1989-02-01",
@@ -10046,7 +10046,7 @@
     },
     {
       "date": "1990-05-01",
-      "value": 63.58
+      "value": 63.57
     },
     {
       "date": "1990-06-01",
@@ -10094,7 +10094,7 @@
     },
     {
       "date": "1991-05-01",
-      "value": 50.62
+      "value": 50.61
     },
     {
       "date": "1991-06-01",
@@ -10318,7 +10318,7 @@
     },
     {
       "date": "1996-01-01",
-      "value": 36.13
+      "value": 36.12
     },
     {
       "date": "1996-02-01",
@@ -10338,7 +10338,7 @@
     },
     {
       "date": "1996-06-01",
-      "value": 35.35
+      "value": 35.34
     },
     {
       "date": "1996-07-01",
@@ -10654,7 +10654,7 @@
     },
     {
       "date": "2003-01-01",
-      "value": 80.68
+      "value": 80.67
     },
     {
       "date": "2003-02-01",
@@ -10854,7 +10854,7 @@
     },
     {
       "date": "2007-03-01",
-      "value": 50.25
+      "value": 50.24
     },
     {
       "date": "2007-04-01",
@@ -10938,7 +10938,7 @@
     },
     {
       "date": "2008-12-01",
-      "value": 82.66
+      "value": 82.65
     },
     {
       "date": "2009-01-01",
@@ -10946,7 +10946,7 @@
     },
     {
       "date": "2009-02-01",
-      "value": 81.03
+      "value": 81.02
     },
     {
       "date": "2009-03-01",
@@ -11094,7 +11094,7 @@
     },
     {
       "date": "2012-03-01",
-      "value": 48.26
+      "value": 48.25
     },
     {
       "date": "2012-04-01",
@@ -11126,7 +11126,7 @@
     },
     {
       "date": "2012-11-01",
-      "value": 45.07
+      "value": 45.06
     },
     {
       "date": "2012-12-01",
@@ -11326,7 +11326,7 @@
     },
     {
       "date": "2017-01-01",
-      "value": 46.08
+      "value": 46.07
     },
     {
       "date": "2017-02-01",
@@ -11450,7 +11450,7 @@
     },
     {
       "date": "2019-08-01",
-      "value": 51.91
+      "value": 51.9
     },
     {
       "date": "2019-09-01",
@@ -11474,7 +11474,7 @@
     },
     {
       "date": "2020-02-01",
-      "value": 49.44
+      "value": 49.43
     },
     {
       "date": "2020-03-01",
@@ -11482,7 +11482,7 @@
     },
     {
       "date": "2020-04-01",
-      "value": 81.49
+      "value": 81.48
     },
     {
       "date": "2020-05-01",
@@ -11498,7 +11498,7 @@
     },
     {
       "date": "2020-08-01",
-      "value": 45.9
+      "value": 45.89
     },
     {
       "date": "2020-09-01",
@@ -11522,7 +11522,7 @@
     },
     {
       "date": "2021-02-01",
-      "value": 40.43
+      "value": 40.42
     },
     {
       "date": "2021-03-01",
@@ -11634,11 +11634,11 @@
     },
     {
       "date": "2021-11-26",
-      "value": 42.68
+      "value": 42.67
     },
     {
       "date": "2021-11-29",
-      "value": 45.32
+      "value": 45.31
     },
     {
       "date": "2021-11-30",
@@ -11770,7 +11770,7 @@
     },
     {
       "date": "2022-01-13",
-      "value": 47.26
+      "value": 47.25
     },
     {
       "date": "2022-01-14",
@@ -11942,7 +11942,7 @@
     },
     {
       "date": "2022-03-15",
-      "value": 75.1
+      "value": 75.09
     },
     {
       "date": "2022-03-16",
@@ -12058,7 +12058,7 @@
     },
     {
       "date": "2022-04-25",
-      "value": 70.03
+      "value": 70.02
     },
     {
       "date": "2022-04-26",
@@ -12130,7 +12130,7 @@
     },
     {
       "date": "2022-05-19",
-      "value": 78.99
+      "value": 78.97
     },
     {
       "date": "2022-05-20",
@@ -12138,11 +12138,11 @@
     },
     {
       "date": "2022-05-23",
-      "value": 75.6
+      "value": 75.58
     },
     {
       "date": "2022-05-24",
-      "value": 77.96
+      "value": 77.94
     },
     {
       "date": "2022-05-25",
@@ -12190,7 +12190,7 @@
     },
     {
       "date": "2022-06-09",
-      "value": 77.77
+      "value": 77.76
     },
     {
       "date": "2022-06-10",
@@ -12206,7 +12206,7 @@
     },
     {
       "date": "2022-06-15",
-      "value": 79.33
+      "value": 79.31
     },
     {
       "date": "2022-06-16",
@@ -12242,7 +12242,7 @@
     },
     {
       "date": "2022-06-28",
-      "value": 77.2
+      "value": 77.19
     },
     {
       "date": "2022-06-29",
@@ -12290,11 +12290,11 @@
     },
     {
       "date": "2022-07-14",
-      "value": 80.72
+      "value": 80.71
     },
     {
       "date": "2022-07-15",
-      "value": 76.14
+      "value": 76.13
     },
     {
       "date": "2022-07-18",
@@ -12342,7 +12342,7 @@
     },
     {
       "date": "2022-08-02",
-      "value": 74.79
+      "value": 74.78
     },
     {
       "date": "2022-08-03",
@@ -12402,7 +12402,7 @@
     },
     {
       "date": "2022-08-23",
-      "value": 76.8
+      "value": 76.79
     },
     {
       "date": "2022-08-24",
@@ -12414,7 +12414,7 @@
     },
     {
       "date": "2022-08-26",
-      "value": 78.18
+      "value": 78.17
     },
     {
       "date": "2022-08-29",
@@ -12446,7 +12446,7 @@
     },
     {
       "date": "2022-09-07",
-      "value": 79.39
+      "value": 79.38
     },
     {
       "date": "2022-09-08",
@@ -12466,7 +12466,7 @@
     },
     {
       "date": "2022-09-14",
-      "value": 80.23
+      "value": 80.22
     },
     {
       "date": "2022-09-15",
@@ -12478,7 +12478,7 @@
     },
     {
       "date": "2022-09-19",
-      "value": 83.9
+      "value": 83.89
     },
     {
       "date": "2022-09-20",
@@ -12530,7 +12530,7 @@
     },
     {
       "date": "2022-10-06",
-      "value": 77.79
+      "value": 77.78
     },
     {
       "date": "2022-10-07",
@@ -12550,7 +12550,7 @@
     },
     {
       "date": "2022-10-13",
-      "value": 79.14
+      "value": 79.13
     },
     {
       "date": "2022-10-14",
@@ -12790,7 +12790,7 @@
     },
     {
       "date": "2023-01-05",
-      "value": 74.4
+      "value": 74.39
     },
     {
       "date": "2023-01-06",
@@ -12958,7 +12958,7 @@
     },
     {
       "date": "2023-03-06",
-      "value": 55.93
+      "value": 55.92
     },
     {
       "date": "2023-03-07",
@@ -13014,11 +13014,11 @@
     },
     {
       "date": "2023-03-24",
-      "value": 63.23
+      "value": 63.22
     },
     {
       "date": "2023-03-27",
-      "value": 61.44
+      "value": 61.43
     },
     {
       "date": "2023-03-28",
@@ -13050,19 +13050,19 @@
     },
     {
       "date": "2023-04-06",
-      "value": 50.39
+      "value": 50.38
     },
     {
       "date": "2023-04-07",
-      "value": 50.62
+      "value": 50.61
     },
     {
       "date": "2023-04-10",
-      "value": 50.17
+      "value": 50.16
     },
     {
       "date": "2023-04-11",
-      "value": 50.45
+      "value": 50.44
     },
     {
       "date": "2023-04-12",
@@ -13086,11 +13086,11 @@
     },
     {
       "date": "2023-04-19",
-      "value": 45.16
+      "value": 45.15
     },
     {
       "date": "2023-04-20",
-      "value": 48.68
+      "value": 48.67
     },
     {
       "date": "2023-04-21",
@@ -13098,7 +13098,7 @@
     },
     {
       "date": "2023-04-24",
-      "value": 47.92
+      "value": 47.91
     },
     {
       "date": "2023-04-25",
@@ -13118,7 +13118,7 @@
     },
     {
       "date": "2023-05-01",
-      "value": 47.29
+      "value": 47.28
     },
     {
       "date": "2023-05-02",
@@ -13250,11 +13250,11 @@
     },
     {
       "date": "2023-06-15",
-      "value": 47.47
+      "value": 47.46
     },
     {
       "date": "2023-06-16",
-      "value": 47.23
+      "value": 47.22
     },
     {
       "date": "2023-06-19",
@@ -13270,11 +13270,11 @@
     },
     {
       "date": "2023-06-22",
-      "value": 37.33
+      "value": 37.32
     },
     {
       "date": "2023-06-23",
-      "value": 41.13
+      "value": 41.12
     },
     {
       "date": "2023-06-26",
@@ -13410,15 +13410,15 @@
     },
     {
       "date": "2023-08-10",
-      "value": 45.21
+      "value": 45.2
     },
     {
       "date": "2023-08-11",
-      "value": 46.06
+      "value": 46.05
     },
     {
       "date": "2023-08-14",
-      "value": 40.82
+      "value": 40.81
     },
     {
       "date": "2023-08-15",
@@ -13434,7 +13434,7 @@
     },
     {
       "date": "2023-08-18",
-      "value": 48.5
+      "value": 48.49
     },
     {
       "date": "2023-08-21",
@@ -13446,7 +13446,7 @@
     },
     {
       "date": "2023-08-23",
-      "value": 44.2
+      "value": 44.19
     },
     {
       "date": "2023-08-24",
@@ -13474,11 +13474,11 @@
     },
     {
       "date": "2023-09-01",
-      "value": 34.92
+      "value": 34.91
     },
     {
       "date": "2023-09-04",
-      "value": 34.92
+      "value": 34.91
     },
     {
       "date": "2023-09-05",
@@ -13522,7 +13522,7 @@
     },
     {
       "date": "2023-09-19",
-      "value": 46.77
+      "value": 46.76
     },
     {
       "date": "2023-09-20",
@@ -13542,11 +13542,11 @@
     },
     {
       "date": "2023-09-26",
-      "value": 57.72
+      "value": 57.71
     },
     {
       "date": "2023-09-27",
-      "value": 53.82
+      "value": 53.81
     },
     {
       "date": "2023-09-28",
@@ -13558,7 +13558,7 @@
     },
     {
       "date": "2023-10-02",
-      "value": 50.3
+      "value": 50.29
     },
     {
       "date": "2023-10-03",
@@ -13566,11 +13566,11 @@
     },
     {
       "date": "2023-10-04",
-      "value": 55.7
+      "value": 55.69
     },
     {
       "date": "2023-10-05",
-      "value": 55.24
+      "value": 55.23
     },
     {
       "date": "2023-10-06",
@@ -13606,7 +13606,7 @@
     },
     {
       "date": "2023-10-18",
-      "value": 59.13
+      "value": 59.12
     },
     {
       "date": "2023-10-19",
@@ -13682,11 +13682,11 @@
     },
     {
       "date": "2023-11-14",
-      "value": 39.66
+      "value": 39.65
     },
     {
       "date": "2023-11-15",
-      "value": 38.03
+      "value": 38.02
     },
     {
       "date": "2023-11-16",
@@ -13786,7 +13786,7 @@
     },
     {
       "date": "2023-12-20",
-      "value": 33.53
+      "value": 33.52
     },
     {
       "date": "2023-12-21",
@@ -13830,7 +13830,7 @@
     },
     {
       "date": "2024-01-04",
-      "value": 39.14
+      "value": 39.13
     },
     {
       "date": "2024-01-05",
@@ -13906,7 +13906,7 @@
     },
     {
       "date": "2024-01-31",
-      "value": 35.9
+      "value": 35.89
     },
     {
       "date": "2024-02-01",
@@ -14094,7 +14094,7 @@
     },
     {
       "date": "2024-04-05",
-      "value": 36.58
+      "value": 36.57
     },
     {
       "date": "2024-04-08",
@@ -14106,7 +14106,7 @@
     },
     {
       "date": "2024-04-10",
-      "value": 37.16
+      "value": 37.15
     },
     {
       "date": "2024-04-11",
@@ -14386,7 +14386,7 @@
     },
     {
       "date": "2024-07-17",
-      "value": 32.69
+      "value": 32.68
     },
     {
       "date": "2024-07-18",
@@ -14402,7 +14402,7 @@
     },
     {
       "date": "2024-07-23",
-      "value": 36.51
+      "value": 36.5
     },
     {
       "date": "2024-07-24",
@@ -14422,7 +14422,7 @@
     },
     {
       "date": "2024-07-30",
-      "value": 50.82
+      "value": 50.81
     },
     {
       "date": "2024-07-31",
@@ -14474,7 +14474,7 @@
     },
     {
       "date": "2024-08-16",
-      "value": 39.28
+      "value": 39.27
     },
     {
       "date": "2024-08-19",
@@ -14690,7 +14690,7 @@
     },
     {
       "date": "2024-10-31",
-      "value": 46.01
+      "value": 46.0
     },
     {
       "date": "2024-11-01",
@@ -14738,7 +14738,7 @@
     },
     {
       "date": "2024-11-18",
-      "value": 37.29
+      "value": 37.28
     },
     {
       "date": "2024-11-19",
@@ -14938,7 +14938,7 @@
     },
     {
       "date": "2025-01-27",
-      "value": 36.66
+      "value": 36.65
     },
     {
       "date": "2025-01-28",
@@ -14958,7 +14958,7 @@
     },
     {
       "date": "2025-02-03",
-      "value": 39.63
+      "value": 39.62
     },
     {
       "date": "2025-02-04",
@@ -15014,7 +15014,7 @@
     },
     {
       "date": "2025-02-21",
-      "value": 40.61
+      "value": 40.6
     },
     {
       "date": "2025-02-24",
@@ -15022,7 +15022,7 @@
     },
     {
       "date": "2025-02-25",
-      "value": 42.89
+      "value": 42.88
     },
     {
       "date": "2025-02-26",
@@ -15030,7 +15030,7 @@
     },
     {
       "date": "2025-02-27",
-      "value": 48.01
+      "value": 48.0
     },
     {
       "date": "2025-02-28",
@@ -15058,7 +15058,7 @@
     },
     {
       "date": "2025-03-10",
-      "value": 46.21
+      "value": 46.19
     },
     {
       "date": "2025-03-11",
@@ -15250,7 +15250,7 @@
     },
     {
       "date": "2025-05-15",
-      "value": 51.66
+      "value": 51.65
     },
     {
       "date": "2025-05-16",
@@ -15326,7 +15326,7 @@
     },
     {
       "date": "2025-06-11",
-      "value": 48.26
+      "value": 48.25
     },
     {
       "date": "2025-06-12",
@@ -15350,7 +15350,7 @@
     },
     {
       "date": "2025-06-19",
-      "value": 46.63
+      "value": 46.62
     },
     {
       "date": "2025-06-20",
@@ -15358,7 +15358,7 @@
     },
     {
       "date": "2025-06-23",
-      "value": 47.03
+      "value": 47.02
     },
     {
       "date": "2025-06-24",
@@ -15530,7 +15530,7 @@
     },
     {
       "date": "2025-08-21",
-      "value": 34.16
+      "value": 34.15
     },
     {
       "date": "2025-08-22",
@@ -15694,7 +15694,7 @@
     },
     {
       "date": "2025-10-17",
-      "value": 31.81
+      "value": 31.8
     },
     {
       "date": "2025-10-20",
@@ -15870,7 +15870,7 @@
     },
     {
       "date": "2025-12-18",
-      "value": 37.66
+      "value": 37.65
     },
     {
       "date": "2025-12-19",
@@ -16046,7 +16046,7 @@
     },
     {
       "date": "2026-02-18",
-      "value": 32.72
+      "value": 32.71
     },
     {
       "date": "2026-02-19",
@@ -16078,7 +16078,7 @@
     },
     {
       "date": "2026-03-02",
-      "value": 32.65
+      "value": 32.64
     },
     {
       "date": "2026-03-03",
@@ -16086,7 +16086,7 @@
     },
     {
       "date": "2026-03-04",
-      "value": 34.59
+      "value": 34.58
     },
     {
       "date": "2026-03-05",
@@ -16198,7 +16198,7 @@
     },
     {
       "date": "2026-04-13",
-      "value": 31.75
+      "value": 31.74
     },
     {
       "date": "2026-04-14",
@@ -16390,11 +16390,11 @@
     },
     {
       "date": "2026-06-18",
-      "value": 33.11
+      "value": 33.1
     },
     {
       "date": "2026-06-19",
-      "value": 33.11
+      "value": 33.1
     },
     {
       "date": "2026-06-22",
@@ -16490,7 +16490,7 @@
     },
     {
       "date": "2026-07-23",
-      "value": 37.16
+      "value": 37.15
     },
     {
       "date": "2026-07-24",
@@ -16506,7 +16506,7 @@
     },
     {
       "date": "2026-07-29",
-      "value": 37.8
+      "value": 37.79
     },
     {
       "date": "2026-07-30",
@@ -16562,7 +16562,7 @@
     },
     {
       "date": "2026-08-18",
-      "value": 32.42
+      "value": 32.41
     },
     {
       "date": "2026-08-19",
@@ -16690,7 +16690,7 @@
     },
     {
       "date": "2026-10-01",
-      "value": 36.23
+      "value": 36.22
     },
     {
       "date": "2026-10-02",
@@ -16734,11 +16734,11 @@
     },
     {
       "date": "2026-10-16",
-      "value": 39.75
+      "value": 39.74
     },
     {
       "date": "2026-10-19",
-      "value": 38.37
+      "value": 38.36
     },
     {
       "date": "2026-10-20",
@@ -16774,20 +16774,20 @@
     },
     {
       "date": "2026-10-30",
-      "value": 35.76
+      "value": 46.97
     }
   ],
   "data_freshness": {
-    "market_data_age_days": 0,
+    "market_data_age_days": 1,
     "is_stale": false,
     "latest_market_date": "2026-10-30",
-    "generated_at_utc": "2026-10-30T02:43:14Z",
+    "generated_at_utc": "2026-10-31T02:18:34Z",
     "stale_sources": [
       "FRED"
     ]
   },
   "build_metadata": {
-    "build_time": "2026-10-30 02:43:11",
+    "build_time": "2026-10-31 02:18:31",
     "dataset_shape": [
       17436,
       70
@@ -16806,7 +16806,7 @@
     ],
     "crash_corrs": {
       "VIX": 0.2335,
-      "VVIX": 0.0367,
+      "VVIX": 0.0366,
       "SKEW": -0.0261,
       "IMPL_CORR": -0.0,
       "DXY": 0.104,
@@ -18435,7 +18435,7 @@
       -2.23,
       -0.64,
       -1.04,
-      -0.56
+      -1.13
     ],
     "fwd_returns": {
       "3M": [
@@ -21529,7 +21529,7 @@
           74.5,
           26.1,
           29.6,
-          53.8,
+          53.7,
           63.1,
           50.9,
           18.0,
@@ -21578,7 +21578,7 @@
           11.3,
           31.5,
           23.6,
-          52.6,
+          52.5,
           95.4,
           99.5,
           97.1,
@@ -22272,7 +22272,7 @@
           13.4,
           62.1,
           84.8,
-          72.4,
+          72.3,
           31.6,
           13.4,
           28.7,
@@ -22293,7 +22293,7 @@
           51.5,
           34.0,
           66.0,
-          72.0,
+          71.9,
           37.9,
           86.3,
           33.4,
@@ -22323,7 +22323,7 @@
           2.9,
           73.1,
           20.0,
-          67.4,
+          67.3,
           56.0,
           37.2,
           87.9,
@@ -22335,7 +22335,7 @@
           66.3,
           16.0,
           97.1,
-          67.8,
+          67.7,
           37.1,
           38.4,
           71.6,
@@ -22363,7 +22363,7 @@
           52.6,
           60.8,
           72.5,
-          79.8,
+          79.7,
           96.9,
           86.6,
           46.6,
@@ -22401,7 +22401,7 @@
           86.8,
           97.3,
           89.7,
-          69.4,
+          69.3,
           82.8,
           87.9,
           83.4,
@@ -23438,7 +23438,7 @@
           28.2,
           11.4,
           16.0,
-          42.9,
+          42.8,
           8.9,
           16.8,
           15.8,
@@ -23577,11 +23577,11 @@
           74.8,
           58.2,
           49.3,
-          47.0,
+          46.9,
           59.4,
           59.8,
           53.2,
-          47.2,
+          47.1,
           52.3,
           43.7,
           51.6,
@@ -23637,7 +23637,7 @@
           53.5,
           53.0,
           38.7,
-          45.7,
+          45.6,
           57.4,
           34.7,
           58.9,
@@ -23811,7 +23811,7 @@
           37.7,
           76.9,
           38.5,
-          47.8,
+          47.7,
           27.7,
           44.6,
           28.8,
@@ -23826,7 +23826,7 @@
           44.0,
           22.4,
           36.1,
-          38.4,
+          38.3,
           37.5,
           70.6,
           39.4,
@@ -24543,7 +24543,7 @@
           71.3,
           23.5,
           78.8,
-          73.3,
+          73.2,
           86.8,
           88.4,
           85.8,
@@ -24717,7 +24717,7 @@
           99.8,
           90.4,
           6.4,
-          72.9,
+          72.8,
           86.0,
           78.6,
           44.0,
@@ -25518,7 +25518,7 @@
           26.9,
           14.7,
           76.9,
-          19.7,
+          19.8,
           45.1,
           88.6,
           8.4,
@@ -26578,7 +26578,7 @@
           35.5,
           51.3,
           44.3,
-          43.6,
+          43.5,
           63.2,
           59.3,
           42.3,
@@ -26622,7 +26622,7 @@
           75.1,
           48.0,
           36.3,
-          44.5,
+          44.4,
           62.1,
           56.3,
           33.4,
@@ -26760,7 +26760,7 @@
           34.8,
           71.8,
           60.0,
-          52.9,
+          52.8,
           18.2,
           41.2,
           84.9,
@@ -26805,7 +26805,7 @@
           5.5,
           34.6,
           38.4,
-          45.7,
+          45.6,
           64.3,
           62.0,
           70.1,
@@ -26916,7 +26916,7 @@
           68.3,
           60.1,
           49.9,
-          47.2,
+          47.1,
           41.1,
           46.5,
           41.2,
@@ -27074,9 +27074,9 @@
           43.7,
           56.9,
           45.2,
-          46.4,
+          46.3,
           49.1,
-          50.1,
+          50.0,
           62.9,
           66.3,
           71.2,
@@ -27178,7 +27178,7 @@
           54.6,
           34.0,
           61.2,
-          41.2,
+          41.1,
           37.8,
           43.9,
           62.3,
@@ -27218,7 +27218,7 @@
           27.1,
           27.7,
           11.4,
-          48.7,
+          48.6,
           73.3,
           66.0,
           55.1,
@@ -27279,7 +27279,7 @@
           82.6,
           45.7,
           70.0,
-          46.0,
+          45.9,
           43.1,
           34.0,
           12.4,
@@ -27314,7 +27314,7 @@
           15.2,
           22.3,
           26.7,
-          48.0,
+          47.9,
           76.1,
           29.0,
           12.7,
@@ -28346,7 +28346,7 @@
           81.7,
           76.7,
           83.2,
-          68.2,
+          68.1,
           85.3,
           49.0,
           80.7,
@@ -28454,7 +28454,7 @@
           20.6,
           11.1,
           35.5,
-          76.1,
+          76.0,
           29.8,
           16.5,
           85.8,
@@ -28523,7 +28523,7 @@
           46.3,
           71.1,
           0.3,
-          69.0,
+          68.9,
           61.7,
           82.8,
           48.6,
@@ -28655,7 +28655,7 @@
           40.0,
           35.8,
           81.4,
-          83.3,
+          83.2,
           75.9,
           58.4,
           27.8,
@@ -28725,7 +28725,7 @@
           61.4,
           79.6,
           71.4,
-          82.7,
+          82.6,
           51.3,
           81.0,
           98.1,
@@ -28818,7 +28818,7 @@
           31.0,
           48.2,
           25.8,
-          63.3,
+          63.2,
           62.2,
           91.0,
           42.4,
@@ -28883,7 +28883,7 @@
           11.6,
           89.6,
           31.7,
-          65.4,
+          65.3,
           83.3,
           42.1,
           89.6,
@@ -28925,7 +28925,7 @@
           43.6,
           24.9,
           7.3,
-          70.3,
+          70.2,
           39.4,
           12.0,
           27.6,
@@ -29980,7 +29980,7 @@
           57.8,
           68.4,
           10.6,
-          31.9,
+          31.8,
           53.8,
           77.0,
           78.2,
@@ -30041,7 +30041,7 @@
           32.4,
           62.7,
           55.1,
-          48.6,
+          48.5,
           62.5,
           52.5,
           58.5,
@@ -30066,7 +30066,7 @@
           37.5,
           52.7,
           63.5,
-          40.4,
+          40.3,
           27.9,
           17.3,
           5.1,
@@ -30239,7 +30239,7 @@
           27.0,
           55.9,
           66.6,
-          32.9,
+          32.8,
           54.5,
           62.2,
           54.0,
@@ -30294,7 +30294,7 @@
           58.2,
           58.5,
           41.9,
-          42.9,
+          42.8,
           5.1,
           26.8,
           39.2,
@@ -30318,7 +30318,7 @@
           56.3,
           29.1,
           21.1,
-          34.3,
+          34.2,
           22.7,
           21.9,
           5.1,
@@ -30370,7 +30370,7 @@
           35.2,
           5.1,
           5.1,
-          46.2,
+          46.1,
           24.4,
           14.0,
           52.8,
@@ -30422,7 +30422,7 @@
           46.1,
           19.0,
           25.9,
-          44.3,
+          44.2,
           34.4,
           78.6,
           77.5,
@@ -30534,7 +30534,7 @@
           54.6,
           17.0,
           26.5,
-          42.5,
+          42.4,
           5.1,
           51.5,
           39.6,
@@ -35326,13 +35326,13 @@
           53.7,
           58.5,
           53.9,
-          45.8,
+          45.7,
           48.7,
           51.4,
           57.7,
           57.4,
           52.6,
-          46.4,
+          46.3,
           26.9,
           31.9,
           36.0,
@@ -36141,7 +36141,7 @@
           16.9,
           18.2,
           9.8,
-          11.7,
+          11.8,
           3.7,
           3.4,
           4.3,
@@ -36914,7 +36914,7 @@
           68.1,
           71.7,
           63.7,
-          70.2,
+          70.1,
           66.7,
           61.9,
           54.6,
